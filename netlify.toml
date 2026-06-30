@@ -1,0 +1,20 @@
+# Root Netlify config for the SynthWave monorepo.
+# The app lives in client/, so build there and publish its dist output.
+# This makes the GitHub-linked deploy work even if the dashboard's
+# "Base directory" is left blank.
+[build]
+  base = "client"
+  command = "npm install && npm run build"
+  publish = "dist"
+
+# Single-page app: serve index.html for any unknown path.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Let the service worker control the whole origin and never be cached stale.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
