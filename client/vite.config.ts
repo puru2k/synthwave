@@ -15,6 +15,21 @@ export default defineConfig({
       "webworker-threads": emptyShim,
     },
   },
+  optimizeDeps: {
+    // Vite's dependency pre-bundler runs esbuild, which does NOT honor
+    // resolve.alias — so stub the Node-only require here too, otherwise dev
+    // dependency optimization fails with "Could not resolve webworker-threads".
+    esbuildOptions: {
+      plugins: [
+        {
+          name: "stub-webworker-threads",
+          setup(build) {
+            build.onResolve({ filter: /^webworker-threads$/ }, () => ({ path: emptyShim }));
+          },
+        },
+      ],
+    },
+  },
   server: {
     port: 5173,
     // Native fs events don't reliably reach Vite in this environment, so HMR
