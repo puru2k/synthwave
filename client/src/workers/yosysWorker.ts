@@ -1,8 +1,14 @@
 // Runs YoWASP Yosys (Yosys compiled to WebAssembly) off the main thread.
-// We import the prebuilt bundle from the CDN at runtime so the ~50 MB wasm is
-// never bundled into our app; the browser fetches and caches it on first use.
-
-const CDN = "https://cdn.jsdelivr.net/npm/@yowasp/yosys/gen/bundle.js";
+//
+// The ~50 MB bundle is vendored under public/wasm/yosys and served same-origin
+// (base-path aware), NOT pulled from a CDN. A cross-origin dynamic import()
+// proved unreliable on deploys — jsdelivr can be slow/blocked, and a service
+// worker can't legally replay a cross-origin module response — so synthesis
+// would fail with "Failed to fetch dynamically imported module". Hosting it
+// ourselves makes Yosys as dependable (and cacheable/offline) as the Icarus
+// and Verilator toolchains. bundle.js locates its cores via import.meta.url,
+// so the sibling .wasm/.tar files resolve next to it automatically.
+const BUNDLE = import.meta.env.BASE_URL + "wasm/yosys/bundle.js";
 
 type RunYosys = (
   args: string[],
@@ -13,7 +19,7 @@ type RunYosys = (
 let runYosysPromise: Promise<RunYosys> | null = null;
 async function getRunYosys(): Promise<RunYosys> {
   if (!runYosysPromise) {
-    runYosysPromise = import(/* @vite-ignore */ CDN).then((m: any) => m.runYosys as RunYosys);
+    runYosysPromise = import(/* @vite-ignore */ BUNDLE).then((m: any) => m.runYosys as RunYosys);
   }
   return runYosysPromise;
 }

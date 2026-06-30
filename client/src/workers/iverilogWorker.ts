@@ -122,6 +122,16 @@ async function run(
   return { code: code ?? 0, out, err, FS };
 }
 
+// Drop internal debug noise that leaked into the WASM builds (e.g. a stray
+// `VVPTGT_DEBUG ...` line the vvp code generator prints) so a clean design
+// reports cleanly instead of looking like an error.
+function cleanLog(lines: string[]): string {
+  return lines
+    .filter((l) => !/^\s*VVPTGT_DEBUG\b/.test(l))
+    .join("\n")
+    .trim();
+}
+
 function readFileMaybe(FS: any, candidates: string[]): string | undefined {
   for (const p of candidates) {
     try {
@@ -179,7 +189,7 @@ async function compile(
     { setup: mkIvlTree, stdin: preprocessed }
   );
   const vvpText = readFileMaybe(s2.FS, ["/work/out.vvp"]) ?? null;
-  const log = [...s2.err, ...s2.out].join("\n").trim();
+  const log = cleanLog([...s2.err, ...s2.out]);
   return { ok: vvpText !== null, vvpText, log };
 }
 
@@ -266,7 +276,7 @@ async function compileAndSimulate(
     }
   );
 
-  const simLog = [...s3.out, ...s3.err].join("\n").trim();
+  const simLog = cleanLog([...s3.out, ...s3.err]);
   const vcd = readFileMaybe(s3.FS, ["/work/dump.vcd", "/dump.vcd"]) ?? null;
 
   // Anything the testbench wrote into /work that wasn't one of our inputs is a
