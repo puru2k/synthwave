@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Local env / editor
+.env
+.env.local
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Emscripten SDK / WASM build scratch.
+# The runtime artifacts the site actually serves live in client/public/wasm and
+# ARE committed; only local toolchain build dirs should be ignored.
+emsdk/
+*.o
+
+# Simulation scratch
+*.vvp
+dump.vcd

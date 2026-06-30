@@ -1,0 +1,10 @@
+{
+  "name": "SynthWave — Verilog IDE",
+  "short_name": "SynthWave",
+  "description": "Write Verilog, simulate it with waveforms, and see what it synthesizes into — entirely in your browser.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1e1e1e",
+  "theme_color": "#1e1e1e"
+}

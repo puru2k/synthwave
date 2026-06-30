@@ -1,0 +1,23 @@
+basedir:/opt/homebrew/Cellar/icarus-verilog/13.0/lib/ivl
+module:/opt/homebrew/Cellar/icarus-verilog/13.0/lib/ivl/system.vpi
+module:/opt/homebrew/Cellar/icarus-verilog/13.0/lib/ivl/vhdl_sys.vpi
+module:/opt/homebrew/Cellar/icarus-verilog/13.0/lib/ivl/vhdl_textio.vpi
+module:/opt/homebrew/Cellar/icarus-verilog/13.0/lib/ivl/v2005_math.vpi
+module:/opt/homebrew/Cellar/icarus-verilog/13.0/lib/ivl/va_math.vpi
+generation:2005
+generation:no-specify
+generation:no-interconnect
+generation:assertions
+generation:xtypes
+generation:io-range-error
+generation:no-strict-ca-eval
+generation:no-strict-expr-width
+generation:shared-loop-index
+generation:no-verilog-ams
+generation:icarus-misc
+warnings:n
+ignore_missing_modules:false
+out:a.out
+iwidth:32
+widthcap:65536
+ivlpp:/opt/homebrew/Cellar/icarus-verilog/13.0/lib/ivl/ivlpp  -L -F"/var/folders/r2/ng4dqrd12cn64tm7w5l3mbpw0000gn/T//ivrlg224eb1dd3" -P"/var/folders/r2/ng4dqrd12cn64tm7w5l3mbpw0000gn/T//ivrli24eb1dd3"

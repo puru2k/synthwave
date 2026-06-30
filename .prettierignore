@@ -1,0 +1,6 @@
+node_modules
+dist
+client/public/wasm
+wasm-build
+package-lock.json
+*.vcd
