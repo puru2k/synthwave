@@ -25,3 +25,5 @@ emsdk/
 # Simulation scratch
 *.vvp
 dump.vcd
+# Machine-specific Icarus config the server dumps at runtime
+server/myconf.txt

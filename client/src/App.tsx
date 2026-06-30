@@ -103,13 +103,18 @@ function filesFromSample(s: Sample): VFile[] {
 function bootWorkspace(): Workspace {
   const ws = loadWorkspace();
   if (ws) return ws;
-  const files = filesFromSample(SAMPLES[0]);
+  // First-time visitors get a blank project (empty design + testbench) rather
+  // than a preloaded example — examples are one click away in the sidebar.
+  const files: WsFile[] = [
+    { id: makeId(), name: "design.v", content: "", kind: "design" },
+    { id: makeId(), name: "testbench.v", content: "", kind: "testbench" },
+  ];
   const id = makeId();
   return {
     version: 2,
     activeId: id,
     projects: [
-      { id, name: SAMPLES[0].name, files, activeId: files[0].id, top: "", flatten: false, sampleName: SAMPLES[0].name },
+      { id, name: "My Project", files, activeId: files[0].id, top: "", flatten: false, sampleName: "" },
     ],
     settings: defaultSettings(),
   };
@@ -162,7 +167,11 @@ export default function App() {
   const [synthMode, setSynthMode] = useState<SynthMode>(bootWs.settings.synthMode);
   const [engine, setEngine] = useState<SynthEngine>(bootWs.settings.engine);
   const [theme, setTheme] = useState<string>(bootWs.settings.theme ?? "dark-plus");
-  const [sidebarOpen, setSidebarOpen] = useState(bootWs.settings.sidebarOpen);
+  // On phones the sidebar is a slide-over drawer; start it closed so it doesn't
+  // cover the editor on first load.
+  const [sidebarOpen, setSidebarOpen] = useState(
+    bootWs.settings.sidebarOpen && (typeof window === "undefined" || window.innerWidth > 820)
+  );
   const [sidebarWidth, setSidebarWidth] = useState(bootWs.settings.sidebarWidth);
   const sidebarDragRef = useRef(false);
   const [hierOpen, setHierOpen] = useState(true);
@@ -1423,6 +1432,9 @@ export default function App() {
             onDoubleClick={() => setSidebarWidth(224)}
             title="Drag to resize · double-click to reset"
           />
+        )}
+        {sidebarOpen && (
+          <div className="sidebar-backdrop" aria-hidden="true" onClick={() => setSidebarOpen(false)} />
         )}
 
         <div className="main" ref={mainRef}>
