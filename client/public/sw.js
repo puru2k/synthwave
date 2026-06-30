@@ -7,7 +7,7 @@
 //   - cdn.jsdelivr.net       (Yosys via @yowasp, and the Monaco editor)
 // Navigations are network-first with an offline fallback to the cached shell.
 
-const CACHE = "synthwave-cache-v1";
+const CACHE = "synthwave-cache-v2";
 
 // The SW is served at "<base>sw.js", so this resolves to "/" at a root domain
 // or "/<repo>/" under a GitHub Pages project subpath. All path checks below are

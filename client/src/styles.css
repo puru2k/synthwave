@@ -630,6 +630,11 @@ body.dragging-col * { user-select: none !important; }
   letter-spacing: 0.6px;
   color: var(--muted);
 }
+.menu-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
 .menu select,
 .menu input {
   background: var(--bg-2);

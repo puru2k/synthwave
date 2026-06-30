@@ -226,6 +226,9 @@ export default function App() {
 
   const activeFile = files.find((f) => f.id === activeId) ?? files[0];
   const designFiles = files.filter((f) => f.kind === "design");
+  // The /api backend is reachable only when getHealth() succeeded. On a static
+  // deploy it never will, so the Server engine is hidden and we stay in-browser.
+  const serverAvailable = health != null;
 
   useEffect(() => {
     getHealth()
@@ -897,6 +900,15 @@ export default function App() {
   };
 
   const changeEngine = (e: SynthEngine) => {
+    if (e === "server" && !serverAvailable) {
+      // No backend on this origin (static deploy) — the Server engine would fail
+      // every action, so refuse the switch and explain why.
+      setLog(
+        "The Server engine needs a backend (Icarus/Yosys CLI), which isn't available on this hosted site. " +
+          "Everything runs in-browser instead."
+      );
+      return;
+    }
     setEngine(e);
     if (e === "wasm") {
       warmupWasm();
@@ -1139,9 +1151,12 @@ export default function App() {
                 <div className="menu-section">
                   <span className="menu-label">Compute engine (simulate + synthesize)</span>
                   <select value={engine} onChange={(e) => changeEngine(e.target.value as SynthEngine)}>
-                    <option value="server">Server (Icarus + Yosys CLI)</option>
                     <option value="wasm">In-browser (WebAssembly)</option>
+                    {serverAvailable && <option value="server">Server (Icarus + Yosys CLI)</option>}
                   </select>
+                  {!serverAvailable && (
+                    <span className="menu-hint">In-browser only — no backend on this host.</span>
+                  )}
                 </div>
                 <div className="menu-section">
                   <span className="menu-label">Theme</span>

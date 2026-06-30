@@ -48,7 +48,7 @@ export const defaultSettings = (): WsSettings => ({
   synthMode: "rtl",
   // In-browser by default so the app works as a backend-free static site.
   engine: "wasm",
-  theme: "dark-plus",
+  theme: "forest",
   splitPct: 50,
   sidebarOpen: true,
   sidebarWidth: 224,

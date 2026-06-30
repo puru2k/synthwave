@@ -89,5 +89,13 @@ export function extractFsm(files: SourceFile[], top: string) {
 
 export async function getHealth(): Promise<HealthResponse> {
   const res = await fetch("/api/health");
-  return (await res.json()) as HealthResponse;
+  // On a static host (Netlify/GitHub Pages) an SPA redirect can answer /api/health
+  // with the index.html shell at status 200. Reject anything that isn't real JSON
+  // from the backend so we don't mistake a static host for a live server.
+  if (!res.ok) throw new Error(`health ${res.status}`);
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) throw new Error("health: not a backend response");
+  const data = (await res.json()) as HealthResponse;
+  if (!data || typeof data.ok !== "boolean") throw new Error("health: unexpected payload");
+  return data;
 }
