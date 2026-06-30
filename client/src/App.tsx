@@ -36,6 +36,7 @@ import {
 } from "./lib/workspace";
 import { stateLabelMap, type FsmData } from "./lib/fsm";
 import { extractFsmFromSource } from "./lib/fsmSource";
+import { isTauri, setNativeAppearance } from "./lib/native";
 import { GENERIC_STDLIB, SKY130_STDLIB } from "./lib/liberty";
 import { synthesizeWasm, extractFsmWasm, warmupWasm } from "./lib/clientSynth";
 import { simulateWasm, lintWasm, strictLintWasm, warmupSim, warmupStrictLint } from "./lib/clientSim";
@@ -46,7 +47,7 @@ import { formatVerilog } from "./lib/format";
 import TestbenchDialog from "./components/TestbenchDialog";
 import { isHdl, monacoLanguage, sanitizeName, splitExt } from "./lib/filetypes";
 import { onToolchainProgress, type ToolProgress } from "./lib/toolchain";
-import { THEMES, getTheme, applyThemeVars } from "./lib/themes";
+import { THEMES, getTheme, applyThemeVars, resolveThemeId } from "./lib/themes";
 import {
   Logo,
   IconActivity,
@@ -165,7 +166,9 @@ export default function App() {
   const [liveLint, setLiveLint] = useState(bootWs.settings.liveLint);
   const [lintLevel, setLintLevel] = useState<LintLevel>(bootWs.settings.lintLevel);
   const [synthMode, setSynthMode] = useState<SynthMode>(bootWs.settings.synthMode);
-  const [engine, setEngine] = useState<SynthEngine>(bootWs.settings.engine);
+  // In the desktop (Tauri) build, default to the native CLI toolchain; in the
+  // browser, honor the saved engine (wasm for static deploys, server locally).
+  const [engine, setEngine] = useState<SynthEngine>(isTauri() ? "server" : bootWs.settings.engine);
   const [theme, setTheme] = useState<string>(bootWs.settings.theme ?? "dark-plus");
   // On phones the sidebar is a slide-over drawer; start it closed so it doesn't
   // cover the editor on first load.
@@ -200,6 +203,15 @@ export default function App() {
   const [busy, setBusy] = useState<"verify" | "sim" | "synth" | "fsm" | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [openMenu, setOpenMenu] = useState<"settings" | "export" | null>(null);
+  // In-app confirm dialog. window.confirm() is a no-op in Tauri's WKWebView, so
+  // we use our own promise-based modal that works in both the web and desktop apps.
+  const [confirmState, setConfirmState] = useState<{
+    message: string;
+    confirmLabel: string;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+  const askConfirm = (message: string, confirmLabel = "OK") =>
+    new Promise<boolean>((resolve) => setConfirmState({ message, confirmLabel, resolve }));
   const [toolProgress, setToolProgress] = useState<ToolProgress | null>(null);
   useEffect(() => onToolchainProgress(setToolProgress), []);
   const [simOutputs, setSimOutputs] = useState<{ name: string; content: string }[]>([]);
@@ -230,6 +242,20 @@ export default function App() {
   // deploy it never will, so the Server engine is hidden and we stay in-browser.
   const serverAvailable = health != null;
 
+  // Tag the document so CSS can opt into native-desktop chrome (overlay
+  // titlebar inset, vibrancy) only inside the Tauri app, never on the web.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isTauri()) root.classList.add("is-tauri");
+    if (/Mac/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent)) {
+      root.classList.add("is-mac");
+    } else if (/Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent)) {
+      root.classList.add("is-windows");
+    } else if (/Linux/i.test(navigator.platform) || /Linux/i.test(navigator.userAgent)) {
+      root.classList.add("is-linux");
+    }
+  }, []);
+
   useEffect(() => {
     getHealth()
       .then(setHealth)
@@ -243,8 +269,9 @@ export default function App() {
           warmupSim();
         }
       });
-    // Prefetch the in-browser toolchains if the workspace booted on the wasm engine.
-    if (bootWs.settings.engine === "wasm") {
+    // Prefetch the in-browser toolchains if the workspace booted on the wasm
+    // engine — but never in the desktop build, where native tools are used.
+    if (!isTauri() && bootWs.settings.engine === "wasm") {
       warmupWasm();
       warmupSim();
       if (bootWs.settings.lintLevel === "strict") warmupStrictLint();
@@ -297,10 +324,45 @@ export default function App() {
     return () => clearTimeout(t);
   }, [files, activeId, top, flatten, sampleName, activeProjectId, liveLint, lintLevel, synthMode, engine, theme, splitPct, sidebarOpen, sidebarWidth]);
 
-  // Apply the selected theme's CSS variables to the whole UI.
+  // Track the OS light/dark preference so the "Auto" theme can follow it live.
+  const [systemDark, setSystemDark] = useState<boolean>(
+    () => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true
+  );
   useEffect(() => {
-    applyThemeVars(getTheme(theme));
-  }, [theme]);
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!mq) return;
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
+
+  // The concrete theme to render: "auto" resolves to a light/dark theme based on
+  // the OS appearance; any explicit choice is used as-is.
+  const resolvedTheme = resolveThemeId(theme, systemDark);
+
+  // Apply the resolved theme's CSS variables to the whole UI, and match the
+  // native window chrome/vibrancy to it (so light themes get a light material).
+  useEffect(() => {
+    const t = getTheme(resolvedTheme);
+    applyThemeVars(t);
+    setNativeAppearance(t.dark ? "dark" : "light");
+  }, [resolvedTheme]);
+
+  // Keyboard support for the in-app confirm dialog: Enter confirms, Esc cancels.
+  useEffect(() => {
+    if (!confirmState) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        confirmState.resolve(false);
+        setConfirmState(null);
+      } else if (e.key === "Enter") {
+        confirmState.resolve(true);
+        setConfirmState(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmState]);
 
   // Build the symbol index across all files (powers completion / hover / go-to-def).
   const vindex = useMemo(
@@ -602,10 +664,10 @@ export default function App() {
     }
   };
 
-  const deleteFile = (id: string) => {
+  const deleteFile = async (id: string) => {
     if (files.length <= 1) return;
     const f = files.find((x) => x.id === id);
-    if (f && f.content.trim() && !window.confirm(`Delete "${f.name}"? Its contents will be lost.`)) {
+    if (f && f.content.trim() && !(await askConfirm(`Delete "${f.name}"? Its contents will be lost.`, "Delete"))) {
       return;
     }
     setFiles((fs) => {
@@ -615,12 +677,12 @@ export default function App() {
     });
   };
 
-  const closeAllFiles = () => {
-    if (files.length && !window.confirm("Close all files? Their contents will be lost.")) return;
+  const closeAllFiles = async () => {
+    setOpenMenu(null);
+    if (files.length && !(await askConfirm("Close all files? Their contents will be lost.", "Close all"))) return;
     setFiles([]);
     setActiveId("");
     setDiagnostics([]);
-    setOpenMenu(null);
   };
 
   const jumpTo = (file: string, line: number) => {
@@ -967,10 +1029,10 @@ export default function App() {
     setLog("Created a new project.");
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: string) => {
     if (projects.length <= 1) return;
     const p = projects.find((x) => x.id === id);
-    if (p && !window.confirm(`Delete project "${p.name}"? Its files will be lost.`)) return;
+    if (p && !(await askConfirm(`Delete project "${p.name}"? Its files will be lost.`, "Delete"))) return;
     const remaining = projects.filter((x) => x.id !== id);
     setProjects(remaining);
     if (id === activeProjectId) {
@@ -1058,7 +1120,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar" data-tauri-drag-region>
         <div className="brand">
           <span className="logo"><Logo size={26} /></span>
           <span className="brand-text">Synth<span className="brand-acc">Wave</span></span>
@@ -1074,7 +1136,7 @@ export default function App() {
           <div className="menu-wrap">
             <button
               className={openMenu === "settings" ? "icon-btn active" : "icon-btn"}
-              title="Examples & options"
+              title="Options"
               onClick={() => setOpenMenu((m) => (m === "settings" ? null : "settings"))}
             >
               <IconMenu />
@@ -1148,19 +1210,22 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                <div className="menu-section">
-                  <span className="menu-label">Compute engine (simulate + synthesize)</span>
-                  <select value={engine} onChange={(e) => changeEngine(e.target.value as SynthEngine)}>
-                    <option value="wasm">In-browser (WebAssembly)</option>
-                    {serverAvailable && <option value="server">Server (Icarus + Yosys CLI)</option>}
-                  </select>
-                  {!serverAvailable && (
-                    <span className="menu-hint">In-browser only — no backend on this host.</span>
-                  )}
-                </div>
+                {!isTauri() && (
+                  <div className="menu-section">
+                    <span className="menu-label">Compute engine (simulate + synthesize)</span>
+                    <select value={engine} onChange={(e) => changeEngine(e.target.value as SynthEngine)}>
+                      <option value="wasm">In-browser (WebAssembly)</option>
+                      {serverAvailable && <option value="server">Server (Icarus + Yosys CLI)</option>}
+                    </select>
+                    {!serverAvailable && (
+                      <span className="menu-hint">In-browser only — no backend on this host.</span>
+                    )}
+                  </div>
+                )}
                 <div className="menu-section">
                   <span className="menu-label">Theme</span>
                   <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+                    <option value="auto">Auto (match system)</option>
                     {THEMES.map((t) => (
                       <option key={t.id} value={t.id}>{t.label}</option>
                     ))}
@@ -1241,14 +1306,55 @@ export default function App() {
         />
       )}
 
+      {confirmState && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            confirmState.resolve(false);
+            setConfirmState(null);
+          }}
+        >
+          <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h2>Confirm</h2>
+            </div>
+            <div className="modal-body">{confirmState.message}</div>
+            <div className="modal-foot">
+              <button
+                className="btn"
+                onClick={() => {
+                  confirmState.resolve(false);
+                  setConfirmState(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn primary"
+                autoFocus
+                onClick={() => {
+                  confirmState.resolve(true);
+                  setConfirmState(null);
+                }}
+              >
+                {confirmState.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {shareMsg && <div className="toast">{shareMsg}</div>}
 
       {missingTools && (
         <div className="warn-banner">
-          Some tools were not found on the server:
+          {isTauri() ? "These tools weren't found on your system:" : "Some tools were not found on the server:"}
           {!health?.tools.iverilog && " iverilog"}
           {!health?.tools.vvp && " vvp"}
-          {!health?.tools.yosys && " yosys"} — install them and restart the server.
+          {!health?.tools.yosys && " yosys"}
+          {isTauri()
+            ? " — install them (e.g. `brew install icarus-verilog yosys`) and reopen the app."
+            : " — install them and restart the server."}
         </div>
       )}
 
@@ -1400,9 +1506,11 @@ export default function App() {
             )}
 
             <div className="sidebar-foot">
-              <button className="side-btn" onClick={shareLink} title="Copy a shareable link to this project">
-                <IconShare /> Share link
-              </button>
+              {!isTauri() && (
+                <button className="side-btn" onClick={shareLink} title="Copy a shareable link to this project">
+                  <IconShare /> Share link
+                </button>
+              )}
               <div className="menu-wrap">
                 <button
                   className="side-btn"
@@ -1578,7 +1686,7 @@ export default function App() {
                 onChange={updateActiveContent}
                 markers={activeDiagnostics}
                 index={vindex}
-                themeId={theme}
+                themeId={resolvedTheme}
                 onJump={jumpTo}
                 onReady={(editor, monaco) => (editorApiRef.current = { editor, monaco })}
               />
@@ -1671,7 +1779,7 @@ export default function App() {
                         Gate-level
                       </button>
                     </div>
-                    {resultEngine && (
+                    {!isTauri() && resultEngine && (
                       <span
                         className={resultEngine === "wasm" ? "engine-badge wasm" : "engine-badge"}
                         title={

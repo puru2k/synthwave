@@ -7,7 +7,7 @@ interface Props {
   onJump?: (file: string, line: number) => void;
 }
 
-const ZOOM_MIN = 0.2;
+const ZOOM_MIN = 0.02;
 const ZOOM_MAX = 4;
 
 export default function Schematic({ svg, srcMap, onJump }: Props) {
@@ -54,6 +54,50 @@ export default function Schematic({ svg, srcMap, onJump }: Props) {
     el.scrollTop = a.cy * zoom - a.oy;
     anchorRef.current = null;
   }, [zoom]);
+
+  // Natural (unscaled) size of the rendered netlist SVG. Prefer the explicit
+  // width/height netlistsvg emits, then the viewBox, then a measured fallback.
+  const naturalSize = (): { w: number; h: number } | null => {
+    const svgEl = hostRef.current?.querySelector("svg") as SVGSVGElement | null;
+    if (!svgEl) return null;
+    const wAttr = parseFloat(svgEl.getAttribute("width") || "");
+    const hAttr = parseFloat(svgEl.getAttribute("height") || "");
+    if (wAttr > 0 && hAttr > 0) return { w: wAttr, h: hAttr };
+    const vb = svgEl.viewBox?.baseVal;
+    if (vb && vb.width > 0 && vb.height > 0) return { w: vb.width, h: vb.height };
+    const r = svgEl.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) return { w: r.width / zoom, h: r.height / zoom };
+    return null;
+  };
+
+  // Scale the schematic so the whole netlist fits the viewport (never enlarging
+  // past 100%), and snap the scroll back to the top-left. This is what makes
+  // huge gate-level netlists visible — manual zoom alone can't go small enough.
+  const fitToView = () => {
+    const el = scrollRef.current;
+    const size = naturalSize();
+    if (!el || !size) return;
+    // Skip if the panel isn't laid out yet (e.g. hidden tab) — fitting against a
+    // zero-size viewport would wrongly collapse the zoom to the minimum.
+    if (el.clientWidth < 2 || el.clientHeight < 2) return;
+    const pad = 32;
+    const availW = Math.max(1, el.clientWidth - pad);
+    const availH = Math.max(1, el.clientHeight - pad);
+    const fit = Math.min(1, availW / size.w, availH / size.h);
+    const nz = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, fit));
+    // Reuse the anchor mechanism to land at the top-left after the re-render.
+    anchorRef.current = { cx: 0, cy: 0, ox: 0, oy: 0 };
+    setZoom(nz);
+  };
+
+  // Auto-fit whenever a new schematic is rendered, so an oversized result is
+  // immediately visible instead of overflowing far beyond the viewport.
+  useEffect(() => {
+    if (!svg) return;
+    const id = requestAnimationFrame(() => fitToView());
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svg]);
 
   const zoomBy = (factor: number, clientX?: number, clientY?: number) => {
     const el = scrollRef.current;
@@ -134,10 +178,11 @@ export default function Schematic({ svg, srcMap, onJump }: Props) {
           {xrefCount > 0 ? " · click a cell to jump to its RTL" : ""}
         </span>
         <div className="spacer" />
-        <button onClick={() => zoomBy(1 / 1.25)}>-</button>
+        <button onClick={() => zoomBy(1 / 1.25)} title="Zoom out">-</button>
         <span className="muted">{Math.round(zoom * 100)}%</span>
-        <button onClick={() => zoomBy(1.25)}>+</button>
-        <button onClick={() => setZoom(1)}>Reset</button>
+        <button onClick={() => zoomBy(1.25)} title="Zoom in">+</button>
+        <button onClick={fitToView} title="Fit the whole schematic to the view">Fit</button>
+        <button onClick={() => setZoom(1)} title="Reset to 100%">100%</button>
       </div>
       <div
         className="schem-scroll"

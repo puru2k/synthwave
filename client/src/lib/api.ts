@@ -1,3 +1,5 @@
+import { isTauri, nativeHealth, nativeSimulate, nativeVerify, nativeSynthesize, nativeExtractFsm } from "./native";
+
 export interface SimulateResponse {
   ok: boolean;
   stage: string;
@@ -72,22 +74,27 @@ export type LintLevel = "basic" | "strict";
 export type SynthMode = "rtl" | "gate";
 
 export function verify(files: SourceFile[], level: LintLevel = "basic", top = "") {
+  if (isTauri()) return nativeVerify(files, level, top);
   return postJson<VerifyResponse>("/api/verify", { files, level, top });
 }
 
 export function simulate(files: SourceFile[], data: SourceFile[] = []) {
+  if (isTauri()) return nativeSimulate(files, data);
   return postJson<SimulateResponse>("/api/simulate", { files, data });
 }
 
 export function synthesize(files: SourceFile[], top: string, flatten: boolean, mode: SynthMode = "rtl", lib?: string) {
+  if (isTauri()) return nativeSynthesize(files, top, flatten, mode, lib);
   return postJson<SynthesizeResponse>("/api/synthesize", { files, top, flatten, mode, lib });
 }
 
 export function extractFsm(files: SourceFile[], top: string) {
+  if (isTauri()) return nativeExtractFsm(files, top);
   return postJson<FsmResponse>("/api/fsm", { files, top });
 }
 
 export async function getHealth(): Promise<HealthResponse> {
+  if (isTauri()) return nativeHealth();
   const res = await fetch("/api/health");
   // On a static host (Netlify/GitHub Pages) an SPA redirect can answer /api/health
   // with the index.html shell at status 200. Reject anything that isn't real JSON

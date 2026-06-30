@@ -103,6 +103,82 @@ builds and deploys automatically:
 > Verilator wasm only downloads the first time you run a strict lint); a progress
 > bar shows the download, and everything is cached afterward.
 
+## Desktop app (standalone, no dependencies)
+
+SynthWave also ships as a native desktop app (built with [Tauri](https://tauri.app/))
+that **bundles the entire EDA toolchain inside the app** — Icarus Verilog, Yosys,
+and Verilator — so it runs with no Homebrew, no installers, and no network. The
+binaries and their data/libraries are vendored, relinked to load relative paths,
+and resolved at runtime by the Rust backend (`src-tauri/src/tools.rs`).
+
+Builds are produced **per platform on that platform** (the native binaries can't
+be cross-bundled). Run everything from `client/`.
+
+### Easiest: build all three in CI
+
+The [`.github/workflows/desktop.yml`](.github/workflows/desktop.yml) workflow
+builds macOS (Apple Silicon), Windows x64, and Linux x64 installers on their
+native GitHub runners — no local toolchain needed. Trigger it from the repo's
+**Actions** tab (**Desktop apps → Run workflow**), then download the installers
+from the run's **Artifacts**. Pushing a tag like `v0.1.0` also attaches them to a
+GitHub Release. The per-platform manual builds below do the same thing locally.
+
+### macOS (Apple Silicon, arm64)
+
+```bash
+# one-time: the bundling script copies the tools from your Homebrew install
+brew install icarus-verilog yosys verilator
+
+npm install
+npm run app:build:mac      # bundles tools/macos-arm64 + builds SynthWave.app/.dmg
+```
+
+Output: `src-tauri/target/release/bundle/{macos,dmg}/`. The app is ad-hoc signed
+(not notarized), so on **other** Macs first launch needs a one-time approval:
+right-click → **Open**, or `xattr -dr com.apple.quarantine /Applications/SynthWave.app`.
+
+### Windows (x64)
+
+The tools are sourced from the relocatable [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build).
+
+```powershell
+# prerequisites: Rust (stable, MSVC), Node.js, and the WebView2 runtime (preinstalled on Win11)
+npm install
+npm run app:build:win      # downloads OSS CAD Suite, bundles tools/windows-x64, builds the installer
+```
+
+The bundling step downloads the latest OSS CAD Suite automatically; to use a copy
+you already have, run the script directly with a path:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File src-tauri/scripts/bundle-windows-tools.ps1 -OssCadSuite C:\oss-cad-suite
+npm run app:build
+```
+
+Output: `src-tauri/target/release/bundle/nsis/SynthWave_0.1.0_x64-setup.exe`. The
+installer embeds the WebView2 offline bootstrapper, so the result is fully
+self-contained.
+
+### Linux (Ubuntu/Debian, x64)
+
+```bash
+# one-time: tools the bundling script copies + relinks from
+sudo apt-get install -y iverilog yosys verilator patchelf
+
+npm install
+npm run app:build:linux    # bundles tools/linux-x64 (+vendored .so closure) and builds .deb/AppImage
+```
+
+Output: `src-tauri/target/release/bundle/{deb,appimage}/`. The EDA toolchain is
+fully bundled; the only system dependency is the WebKitGTK webview
+(`libwebkit2gtk-4.1-0`), which the `.deb` declares so `apt` pulls it in
+automatically — the Linux analog of WebView2 on Windows.
+
+> The Linux build follows GNOME/Yaru conventions (Ubuntu/Cantarell type, Adwaita
+> rounding, Ubuntu-orange focus accent) with native window decorations. Windows
+> uses a Windows 11 Fluent theme; macOS uses an overlay title bar with vibrancy.
+> All three share the same feature set and the same self-contained toolchain.
+
 ## Development scripts
 
 Run from `client/`:

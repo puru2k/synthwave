@@ -67,6 +67,38 @@ async function renderSchematic(netlistText: string): Promise<string> {
   return await render(skin, JSON.parse(netlistText));
 }
 
+// Turn a raw Yosys netlist + log into the full SynthesizeResponse the UI wants:
+// render the schematic (netlistsvg) and compute stats/critical-path/srcMap.
+// Shared by the in-browser (WASM) and native (desktop) synthesis paths so the
+// post-processing is identical regardless of which engine produced the netlist.
+export async function finishSynthesis(
+  netlist: string,
+  log: string,
+  mode: SynthMode
+): Promise<SynthesizeResponse> {
+  let svg: string | null = null;
+  let renderError: string | null = null;
+  try {
+    svg = await renderSchematic(netlist);
+  } catch (e: any) {
+    renderError = e?.message || String(e);
+  }
+  return {
+    ok: true,
+    stage: "done",
+    netlist,
+    svg,
+    renderError,
+    stats: {
+      ...parseStat(log),
+      depth: criticalDepth(netlist),
+      ...(mode === "gate" ? parseLibertyMetrics(log) : {}),
+    },
+    srcMap: buildSrcMap(netlist),
+    log: log || "Synthesis finished.",
+  };
+}
+
 export async function synthesizeWasm(
   files: SourceFile[],
   top: string,

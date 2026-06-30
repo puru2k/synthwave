@@ -1324,6 +1324,8 @@ body.dragging-col * { user-select: none !important; }
   max-height: 86vh;
 }
 .tb-dialog { width: min(960px, 94vw); }
+.confirm-modal { width: min(420px, 92vw); }
+.confirm-modal .modal-body { font-size: 13.5px; line-height: 1.5; }
 .modal-head {
   display: flex;
   align-items: center;
@@ -1487,4 +1489,210 @@ body.dragging-col * { user-select: none !important; }
   /* Keep popovers and menus inside the viewport. */
   .modal { max-width: 94vw; }
   .menu { max-width: 90vw; }
+}
+
+/* ============================================================
+   Apple HIG polish
+   ============================================================ */
+
+/* Crisp SF rendering — the system font (-apple-system) wants antialiased
+   smoothing and ligature-aware layout to match native macOS UI text. */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Deference: respect the user's motion preference (HIG accessibility). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Native desktop (Tauri) chrome ----------
+   Only active inside the macOS app (html.is-tauri). The window uses an overlay
+   title bar with the native traffic lights floating over our toolbar, and an
+   under-window vibrancy material. We make the base layers transparent so the
+   material shows through the frosted toolbar + sidebar, while the main content
+   area stays fully opaque so code/waveforms remain perfectly legible — the
+   classic macOS "vibrant sidebar, solid content" layout (Finder, Mail, Xcode). */
+.is-tauri body {
+  background: transparent;
+}
+.is-tauri .main {
+  background: var(--bg);
+}
+
+/* Frosted, translucent toolbar — reads as a native unified title/tool bar.
+   NOTE: backdrop-filter creates a new stacking context, which would otherwise
+   trap the options dropdown beneath the full-screen .menu-backdrop (z-index 40)
+   and make its items unclickable. Lifting the frosted containers above that
+   backdrop keeps their menus on top and interactive. */
+.is-tauri .topbar {
+  position: relative;
+  z-index: 50;
+  background: color-mix(in srgb, var(--bg-2) 68%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+  min-height: 44px;
+}
+
+/* Frosted sidebar (canonical macOS vibrant sidebar). */
+.is-tauri .sidebar {
+  position: relative;
+  z-index: 50;
+  background: color-mix(in srgb, var(--bg-2) 58%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+}
+
+/* Light themes: heavy translucency washes the chrome out (and reads poorly over
+   the vibrancy material), so keep the frosted toolbar/sidebar much more opaque
+   for crisp, legible light surfaces. The window appearance is also synced to the
+   theme (see setNativeAppearance) so the material itself goes light. */
+.is-tauri[data-dark="0"] .topbar {
+  background: color-mix(in srgb, var(--bg-2) 90%, transparent);
+}
+.is-tauri[data-dark="0"] .sidebar {
+  background: color-mix(in srgb, var(--bg-2) 88%, transparent);
+}
+
+/* Make room for the traffic lights at the top-left of the overlay title bar. */
+.is-tauri.is-mac .topbar {
+  padding-left: 88px;
+}
+
+/* The toolbar is the window's drag handle; show the grab affordance on empty
+   areas while interactive controls keep the normal pointer. */
+.is-tauri .topbar[data-tauri-drag-region] {
+  cursor: default;
+}
+.is-tauri .topbar button,
+.is-tauri .topbar select,
+.is-tauri .topbar input,
+.is-tauri .topbar a {
+  cursor: pointer;
+}
+
+/* ============================================================
+   Windows 11 (Fluent) desktop chrome
+   ============================================================
+   The Windows app uses the native title bar (no overlay/vibrancy), so undo the
+   macOS translucency — a transparent body over an opaque Win32 window would show
+   through as broken. Instead we render clean, opaque Fluent surfaces, the Segoe
+   UI Variable type ramp, and softly rounded controls for a modern Win11 feel. */
+.is-windows,
+.is-windows body,
+.is-windows button,
+.is-windows select,
+.is-windows input,
+.is-windows textarea {
+  font-family: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI",
+    system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Opaque surfaces (override the mac vibrancy layers). */
+.is-tauri.is-windows body {
+  background: var(--bg);
+}
+.is-tauri.is-windows .topbar,
+.is-tauri.is-windows .sidebar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.is-tauri.is-windows .topbar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding-left: 12px;
+}
+.is-tauri.is-windows .sidebar {
+  background: var(--bg-2);
+  border-right: 1px solid var(--border);
+}
+
+/* Fluent rounding + focus accent on interactive controls. */
+.is-windows button,
+.is-windows select,
+.is-windows input,
+.is-windows .side-btn,
+.is-windows .btn {
+  border-radius: 6px;
+}
+.is-windows .btn.primary {
+  border-radius: 6px;
+}
+.is-windows button:focus-visible,
+.is-windows select:focus-visible,
+.is-windows input:focus-visible {
+  outline: 2px solid var(--accent, #2563eb);
+  outline-offset: 1px;
+}
+.is-windows .modal,
+.is-windows .menu,
+.is-windows .menu-pop {
+  border-radius: 8px;
+}
+
+/* ============================================================
+   Ubuntu / GNOME (Yaru) desktop chrome
+   ============================================================
+   The Linux app uses native (GNOME) decorations on an opaque window, so undo the
+   macOS translucency and lean into GNOME's design language: the Ubuntu type
+   family, generously rounded Adwaita-style surfaces, and the Yaru accent for
+   focus. Keeps everything legible on webkit2gtk without relying on compositing. */
+.is-linux,
+.is-linux body,
+.is-linux button,
+.is-linux select,
+.is-linux input,
+.is-linux textarea {
+  font-family: "Ubuntu", "Ubuntu Variable", "Cantarell", system-ui, -apple-system,
+    "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Opaque surfaces (override the mac vibrancy layers). */
+.is-tauri.is-linux body {
+  background: var(--bg);
+}
+.is-tauri.is-linux .topbar,
+.is-tauri.is-linux .sidebar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.is-tauri.is-linux .topbar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  padding-left: 12px;
+}
+.is-tauri.is-linux .sidebar {
+  background: var(--bg-2);
+  border-right: 1px solid var(--border);
+}
+
+/* Adwaita-style rounding + Yaru accent focus. */
+.is-linux button,
+.is-linux select,
+.is-linux input,
+.is-linux .side-btn,
+.is-linux .btn {
+  border-radius: 8px;
+}
+.is-linux button:focus-visible,
+.is-linux select:focus-visible,
+.is-linux input:focus-visible {
+  outline: 2px solid #e95420; /* Ubuntu orange */
+  outline-offset: 1px;
+}
+.is-linux .modal,
+.is-linux .menu,
+.is-linux .menu-pop {
+  border-radius: 12px;
 }

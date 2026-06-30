@@ -116,6 +116,18 @@ export const THEMES: ThemeDef[] = [
 
 export const DEFAULT_THEME = "dark-plus";
 
+// "auto" follows the OS appearance, mapping to these concrete themes. Forest is
+// SynthWave's signature dark look; Light+ is the clean light counterpart.
+export const AUTO_DARK_THEME = "forest";
+export const AUTO_LIGHT_THEME = "light-plus";
+
+// Resolve a (possibly "auto") theme preference to a concrete theme id, given
+// whether the system currently prefers a dark appearance.
+export function resolveThemeId(pref: string, systemDark: boolean): string {
+  if (pref === "auto") return systemDark ? AUTO_DARK_THEME : AUTO_LIGHT_THEME;
+  return pref;
+}
+
 export function getTheme(id: string): ThemeDef {
   return THEMES.find((t) => t.id === id) ?? THEMES[0];
 }
