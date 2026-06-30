@@ -1,13 +1,18 @@
 // SynthWave service worker: makes the app installable/offline and serves the
 // heavy WebAssembly toolchains cache-first so repeat visits load instantly.
 //
-// Cache-first targets:
-//   - same-origin /wasm/**   (Icarus + Verilator toolchains)
-//   - same-origin /assets/** (hashed build output — safe to cache forever)
-//   - cdn.jsdelivr.net       (Yosys via @yowasp, and the Monaco editor)
-// Navigations are network-first with an offline fallback to the cached shell.
+// Cache-first targets (same-origin ONLY):
+//   - /wasm/**   (Icarus + Verilator toolchains)
+//   - /assets/** (hashed build output — safe to cache forever)
+//
+// IMPORTANT: cross-origin requests (cdn.jsdelivr.net for YoWASP Yosys and the
+// Monaco editor) are deliberately NOT intercepted. Replaying a cross-origin
+// response from the SW breaks dynamic ES-module imports (`import()` enforces a
+// stricter CORS contract than the SW can satisfy), which made in-browser Yosys
+// fail to load with "Failed to fetch dynamically imported module". We let the
+// browser's own HTTP cache handle the CDN instead.
 
-const CACHE = "synthwave-cache-v2";
+const CACHE = "synthwave-cache-v3";
 
 // The SW is served at "<base>sw.js", so this resolves to "/" at a root domain
 // or "/<repo>/" under a GitHub Pages project subpath. All path checks below are
@@ -16,10 +21,8 @@ const BASE = new URL("./", self.location).pathname;
 
 function cacheFirstTarget(url) {
   const u = new URL(url);
-  if (u.origin === self.location.origin) {
-    return u.pathname.startsWith(BASE + "wasm/") || u.pathname.startsWith(BASE + "assets/");
-  }
-  return u.hostname === "cdn.jsdelivr.net";
+  if (u.origin !== self.location.origin) return false;
+  return u.pathname.startsWith(BASE + "wasm/") || u.pathname.startsWith(BASE + "assets/");
 }
 
 self.addEventListener("install", () => self.skipWaiting());

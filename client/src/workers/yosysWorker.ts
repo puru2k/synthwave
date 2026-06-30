@@ -33,7 +33,17 @@ self.onmessage = async (ev: MessageEvent) => {
     const runYosys = await getRunYosys();
     const out = await runYosys(args, files, { stdout: sink, stderr: sink });
     const norm: Record<string, string> = {};
-    for (const [k, v] of Object.entries(out)) norm[k] = typeof v === "string" ? v : new TextDecoder().decode(v);
+    for (const [k, v] of Object.entries(out)) {
+      // YoWASP returns a tree: files are string | Uint8Array, but directories
+      // (e.g. the abc temp dir created during gate-level mapping) come back as
+      // nested objects. Decode only real files and skip everything else, or
+      // TextDecoder throws "parameter 1 is not of type 'ArrayBuffer'".
+      const val = v as unknown;
+      if (typeof val === "string") norm[k] = val;
+      else if (val instanceof Uint8Array || val instanceof ArrayBuffer || ArrayBuffer.isView(val)) {
+        norm[k] = decode(val as Uint8Array);
+      }
+    }
     (self as any).postMessage({ id, files: norm, log });
   } catch (e: any) {
     (self as any).postMessage({ id, error: String(e?.message || e), log });
