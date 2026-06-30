@@ -148,6 +148,20 @@ Copy-DataDir -RelFrom "yosys" -RelTo "share\yosys"
 # verilator root (include/, etc.) -> share\verilator (VERILATOR_ROOT points here).
 Copy-DataDir -RelFrom "verilator" -RelTo "share\verilator"
 
+# iverilog's sub-executables (ivl.exe, ivlpp.exe) live in lib\ivl and load the
+# MinGW runtime (libstdc++-6.dll, libgcc_s_seh-1.dll, libwinpthread-1.dll). A
+# Windows EXE searches its OWN directory first, so the correct DLLs must sit next
+# to them here — otherwise an older libstdc++ elsewhere on PATH wins and ivl.exe
+# fails with "entry point ... could not be located".
+$ivlDir = Join-Path $Dest "lib\ivl"
+if (Test-Path $ivlDir) {
+  $copied = 0
+  Get-ChildItem (Join-Path $Dest "bin\*.dll") -ErrorAction SilentlyContinue | ForEach-Object {
+    Copy-Item $_.FullName $ivlDir -Force; $copied++
+  }
+  Write-Host "    copied $copied runtime DLLs into lib\ivl"
+}
+
 $total = "{0:N0}" -f ((Get-ChildItem $Dest -Recurse -File | Measure-Object Length -Sum).Sum / 1MB)
 Write-Host "==> Done. Bundle size: $total MB"
 Write-Host "    Tools: $((Get-ChildItem (Join-Path $Dest 'bin') -Filter *.exe | ForEach-Object { $_.Name }) -join ' ')"

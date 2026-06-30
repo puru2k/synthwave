@@ -60,8 +60,20 @@ echo "==> Copying binaries"
 copybin iverilog
 copybin vvp
 copybin yosys
-copybin yosys-abc
 copybin verilator_bin
+
+# ABC (gate-level synthesis). Debian/Ubuntu ship it as the `yosys-abc` package;
+# fall back to a plain `abc`/`berkeley-abc` under the name Yosys expects.
+if command -v yosys-abc >/dev/null 2>&1; then
+  copybin yosys-abc
+else
+  ABC_SRC="$(command -v berkeley-abc || command -v abc || true)"
+  if [ -n "$ABC_SRC" ]; then
+    cp -L "$ABC_SRC" "$DEST/bin/yosys-abc"; chmod u+w "$DEST/bin/yosys-abc"; echo "    bin/yosys-abc (from $(basename "$ABC_SRC"))"
+  else
+    echo "    WARNING: no abc binary found (gate-level synth will fail). Try: sudo apt-get install yosys-abc" >&2
+  fi
+fi
 
 echo "==> Copying data directories"
 if [ -n "$IVL_SRC" ]; then cp -RL "$IVL_SRC" "$DEST/lib/ivl"; echo "    lib/ivl ($(du -sh "$DEST/lib/ivl" | cut -f1))"; else echo "    WARNING: iverilog data dir (ivl) not found" >&2; fi

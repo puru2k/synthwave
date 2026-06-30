@@ -163,7 +163,8 @@ self-contained.
 
 ```bash
 # one-time: tools the bundling script copies + relinks from
-sudo apt-get install -y iverilog yosys verilator patchelf
+# (yosys-abc is required for gate-level synthesis)
+sudo apt-get install -y iverilog yosys yosys-abc verilator patchelf
 
 npm install
 npm run app:build:linux    # bundles tools/linux-x64 (+vendored .so closure) and builds .deb/AppImage

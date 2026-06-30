@@ -144,6 +144,23 @@ fn bundled_root() -> Option<PathBuf> {
     None
 }
 
+// A ` -exe <path>` argument for Yosys's `abc` pass pointing at the bundled
+// yosys-abc, or empty. Only needed on Linux, where the distro Yosys is built
+// with an absolute ABCEXTERNAL path that isn't present on the user's machine;
+// macOS/Windows Yosys finds yosys-abc next to its own binary.
+fn bundled_abc_arg() -> String {
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(root) = bundled_root() {
+            let abc = root.join("bin").join("yosys-abc");
+            if abc.is_file() {
+                return format!(" -exe {}", abc.to_string_lossy());
+            }
+        }
+    }
+    String::new()
+}
+
 // macOS GUI apps launched from Finder get a minimal PATH that excludes
 // /opt/homebrew/bin etc., so we resolve absolute tool paths ourselves.
 fn candidate_dirs() -> Vec<PathBuf> {
@@ -241,6 +258,16 @@ fn run(cmd: &str, args: &[&str], cwd: &Path) -> RunOut {
                 command.env("VERILATOR_ROOT", &vroot);
             }
         }
+    }
+
+    // Put the bundled bin dir first on PATH so child/grandchild processes resolve
+    // our shipped helpers and runtime libraries (e.g. iverilog -> ivl + its MinGW
+    // DLLs on Windows, yosys -> yosys-abc on Linux) instead of system copies.
+    if let Some(ref root) = bundled {
+        let bin = root.join("bin");
+        let sep = if cfg!(windows) { ';' } else { ':' };
+        let prev = std::env::var("PATH").unwrap_or_default();
+        command.env("PATH", format!("{}{}{}", bin.to_string_lossy(), sep, prev));
     }
 
     let child = command.spawn();
@@ -608,6 +635,11 @@ pub fn synthesize_impl(files: Vec<SrcFile>, top: String, flatten: bool, mode: St
     let joined = names.join(" ");
     let top_arg = if top.trim().is_empty() { "-auto-top".to_string() } else { format!("-top {}", top.trim()) };
     let flatten_arg = if flatten { "; flatten" } else { "" };
+    // The abc executable for the gate flow. Distro Yosys (Linux) is built with an
+    // absolute ABCEXTERNAL that won't exist on the user's machine, so point it at
+    // our bundled yosys-abc explicitly. Other platforms resolve it relative to the
+    // yosys binary, which already works, so this is empty there.
+    let abc = bundled_abc_arg();
 
     let has_lib = lib.as_ref().map(|l| !l.trim().is_empty()).unwrap_or(false);
     let script = if mode == "gate" && has_lib {
@@ -617,7 +649,7 @@ pub fn synthesize_impl(files: Vec<SrcFile>, top: String, flatten: bool, mode: St
             format!("read_verilog -sv {}", joined),
             format!("synth {}{}", top_arg, flatten_arg),
             "dfflibmap -liberty cells.lib".to_string(),
-            "abc -liberty cells.lib".to_string(),
+            format!("abc{} -liberty cells.lib", abc),
             "opt_clean".to_string(),
             "stat -liberty cells.lib".to_string(),
             "write_json netlist.json".to_string(),
@@ -627,7 +659,7 @@ pub fn synthesize_impl(files: Vec<SrcFile>, top: String, flatten: bool, mode: St
         [
             format!("read_verilog -sv {}", joined),
             format!("synth {}{}", top_arg, flatten_arg),
-            "abc -g AND,OR,XOR,MUX".to_string(),
+            format!("abc{} -g AND,OR,XOR,MUX", abc),
             "opt_clean".to_string(),
             "stat".to_string(),
             "write_json netlist.json".to_string(),
