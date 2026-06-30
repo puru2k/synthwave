@@ -33,33 +33,58 @@ $Dest      = Join-Path $TauriDir "tools\windows-x64"
 Write-Host "==> Bundling native tools into $Dest"
 
 # ---- obtain OSS CAD Suite ---------------------------------------------------
+# Locate 7-Zip, used to unpack the OSS CAD Suite Windows build (a self-extracting
+# 7z .exe). It's preinstalled on GitHub windows runners and most dev machines.
+function Get-SevenZip {
+  $cmd = Get-Command 7z -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  foreach ($p in @("$env:ProgramFiles\7-Zip\7z.exe", "${env:ProgramFiles(x86)}\7-Zip\7z.exe")) {
+    if (Test-Path $p) { return $p }
+  }
+  throw "7-Zip not found. Install it (e.g. 'choco install 7zip') so the OSS CAD Suite .exe can be extracted."
+}
+
+# Extract an OSS CAD Suite archive (.exe self-extractor or .tgz) into $OutDir,
+# then return the inner 'oss-cad-suite' directory.
+function Expand-Suite {
+  param([string]$Archive, [string]$OutDir)
+  New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+  if ($Archive -match '\.(tgz|tar\.gz)$') {
+    tar -xf $Archive -C $OutDir
+  } else {
+    & (Get-SevenZip) x $Archive "-o$OutDir" -y | Out-Null
+  }
+  $cand = Join-Path $OutDir "oss-cad-suite"
+  if (Test-Path (Join-Path $cand "bin")) { return $cand }
+  $sub = Get-ChildItem $OutDir -Directory | Where-Object { Test-Path (Join-Path $_.FullName "bin") } | Select-Object -First 1
+  if ($sub) { return $sub.FullName }
+  return $OutDir
+}
+
 function Resolve-Suite {
   param([string]$Path)
 
   if ($Path -and (Test-Path $Path)) {
     $item = Get-Item $Path
     if ($item.PSIsContainer) { return (Resolve-Path $Path).Path }
-    # An archive was passed: extract it next to itself.
+    # An archive (.exe self-extractor or .tgz) was passed: extract it.
     $out = Join-Path $env:TEMP ("oss-cad-" + [System.Guid]::NewGuid().ToString("N"))
-    New-Item -ItemType Directory -Force -Path $out | Out-Null
     Write-Host "    Extracting $Path ..."
-    tar -xf $Path -C $out
-    return (Get-ChildItem $out -Directory | Select-Object -First 1).FullName
+    return (Expand-Suite -Archive $Path -OutDir $out)
   }
 
   Write-Host "==> No -OssCadSuite given; downloading the latest OSS CAD Suite (Windows x64)"
   $api = "https://api.github.com/repos/YosysHQ/oss-cad-suite-build/releases/latest"
   $rel = Invoke-RestMethod -Uri $api -Headers @{ "User-Agent" = "synthwave-build" }
-  $asset = $rel.assets | Where-Object { $_.name -match "windows-x64.*\.(tgz|tar\.gz)$" } | Select-Object -First 1
-  if (-not $asset) { throw "Could not find a Windows x64 tarball in the latest OSS CAD Suite release." }
+  # The Windows build ships as a self-extracting .exe (not a tarball).
+  $asset = $rel.assets | Where-Object { $_.name -match "windows-x64.*\.exe$" } | Select-Object -First 1
+  if (-not $asset) { throw "Could not find a Windows x64 build in the latest OSS CAD Suite release." }
   $tmp = Join-Path $env:TEMP $asset.name
   Write-Host "    Downloading $($asset.name) ($([math]::Round($asset.size/1MB)) MB) ..."
   Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tmp
   $out = Join-Path $env:TEMP ("oss-cad-" + [System.Guid]::NewGuid().ToString("N"))
-  New-Item -ItemType Directory -Force -Path $out | Out-Null
-  Write-Host "    Extracting ..."
-  tar -xf $tmp -C $out
-  return (Join-Path $out "oss-cad-suite")
+  Write-Host "    Extracting (7-Zip) ..."
+  return (Expand-Suite -Archive $tmp -OutDir $out)
 }
 
 $Suite = Resolve-Suite -Path $OssCadSuite
