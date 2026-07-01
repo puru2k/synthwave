@@ -170,6 +170,7 @@ export default function App() {
   // browser, honor the saved engine (wasm for static deploys, server locally).
   const [engine, setEngine] = useState<SynthEngine>(isTauri() ? "server" : bootWs.settings.engine);
   const [theme, setTheme] = useState<string>(bootWs.settings.theme ?? "dark-plus");
+  const [smartSuggestions, setSmartSuggestions] = useState(bootWs.settings.smartSuggestions ?? true);
   // On phones the sidebar is a slide-over drawer; start it closed so it doesn't
   // cover the editor on first load.
   const [sidebarOpen, setSidebarOpen] = useState(
@@ -319,13 +320,13 @@ export default function App() {
           version: 2,
           activeId: activeProjectId,
           projects: next,
-          settings: { liveLint, lintLevel, synthMode, engine, theme, splitPct, sidebarOpen, sidebarWidth },
+          settings: { liveLint, lintLevel, synthMode, engine, theme, splitPct, sidebarOpen, sidebarWidth, smartSuggestions },
         });
         return next;
       });
     }, 300);
     return () => clearTimeout(t);
-  }, [files, activeId, top, flatten, sampleName, activeProjectId, liveLint, lintLevel, synthMode, engine, theme, splitPct, sidebarOpen, sidebarWidth]);
+  }, [files, activeId, top, flatten, sampleName, activeProjectId, liveLint, lintLevel, synthMode, engine, theme, splitPct, sidebarOpen, sidebarWidth, smartSuggestions]);
 
   // Track the OS light/dark preference so the "Auto" theme can follow it live.
   const [systemDark, setSystemDark] = useState<boolean>(
@@ -1255,6 +1256,10 @@ export default function App() {
                   <input type="checkbox" checked={liveLint} onChange={(e) => setLiveLint(e.target.checked)} />
                   Live lint as you type
                 </label>
+                <label className="menu-check" title="Autocomplete / IntelliSense popups in the editor (Ctrl+Space still works on demand)">
+                  <input type="checkbox" checked={smartSuggestions} onChange={(e) => setSmartSuggestions(e.target.checked)} />
+                  Smart suggestions (editor autocomplete)
+                </label>
                 <div className="menu-divider" />
                 <button
                   className="menu-item"
@@ -1703,6 +1708,7 @@ export default function App() {
                 markers={activeDiagnostics}
                 index={vindex}
                 themeId={resolvedTheme}
+                smartSuggestions={smartSuggestions}
                 onJump={jumpTo}
                 onReady={(editor, monaco) => (editorApiRef.current = { editor, monaco })}
               />

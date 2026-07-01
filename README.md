@@ -10,7 +10,8 @@ three ways: fully in the browser (WebAssembly), against a local Node server, or 
 a self-contained native desktop app with the toolchain bundled in.
 
 - ✍️ Monaco-based editor with Verilog syntax highlighting, multi-file/multi-project
-  workspaces, and cross-highlighting between the schematic and source.
+  workspaces, cross-highlighting between the schematic and source, and toggleable
+  smart suggestions (autocomplete) in the menu.
 - 📈 Simulation with [Icarus Verilog](http://iverilog.icarus.com/) → an interactive
   VCD waveform viewer.
 - 🩺 Linting: basic (Icarus `-Wall`) and strict ([Verilator](https://www.veripool.org/verilator/)),

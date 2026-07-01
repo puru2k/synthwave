@@ -30,6 +30,7 @@ export interface WsSettings {
   splitPct: number;
   sidebarOpen: boolean;
   sidebarWidth: number;
+  smartSuggestions: boolean;
 }
 
 export interface Workspace {
@@ -53,6 +54,8 @@ export const defaultSettings = (): WsSettings => ({
   splitPct: 50,
   sidebarOpen: true,
   sidebarWidth: 224,
+  // Monaco autocomplete / IntelliSense popups as you type.
+  smartSuggestions: true,
 });
 
 export function loadWorkspace(): Workspace | null {

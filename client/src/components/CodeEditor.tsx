@@ -284,11 +284,12 @@ interface Props {
   markers?: Marker[];
   index?: VIndex;
   themeId?: string;
+  smartSuggestions?: boolean;
   onJump?: (file: string, line: number) => void;
   onReady?: (editor: any, monaco: any) => void;
 }
 
-export default function CodeEditor({ value, onChange, height = "100%", path, language = "verilog", markers = [], index, themeId = "dark-plus", onJump, onReady }: Props) {
+export default function CodeEditor({ value, onChange, height = "100%", path, language = "verilog", markers = [], index, themeId = "dark-plus", smartSuggestions = true, onJump, onReady }: Props) {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
 
@@ -357,6 +358,13 @@ export default function CodeEditor({ value, onChange, height = "100%", path, lan
         fontFamily: "'JetBrains Mono', 'Fira Code', Menlo, monospace",
         renderLineHighlight: "line",
         smoothScrolling: true,
+        // Smart suggestions: the autocomplete/IntelliSense popups that appear as
+        // you type. When off, nothing is triggered automatically (Ctrl+Space
+        // still works on demand).
+        quickSuggestions: smartSuggestions,
+        suggestOnTriggerCharacters: smartSuggestions,
+        wordBasedSuggestions: smartSuggestions ? "currentDocument" : "off",
+        parameterHints: { enabled: smartSuggestions },
       }}
     />
   );
