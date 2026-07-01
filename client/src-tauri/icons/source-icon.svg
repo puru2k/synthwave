@@ -5,14 +5,19 @@
       <stop offset="1" stop-color="#36c2a8" />
     </linearGradient>
   </defs>
-  <rect x="1.5" y="1.5" width="21" height="21" rx="6.5" fill="url(#sw-logo-grad)" />
-  <path
-    d="M3.8 12 q2 -4.5 4 0 t4 0 L11.8 7.7 L15 7.7 L15 16.3 L18.2 16.3 L18.2 12 L20.2 12"
-    stroke="#ffffff"
-    stroke-width="1.7"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"
-    opacity="0.96"
-  />
+  <!-- Scale the whole mark up around the center so the tile fills more of the
+       canvas (less transparent margin / halo). Keep in sync with the mask
+       geometry in the icon-generation step. -->
+  <g transform="translate(12 12) scale(1.11) translate(-12 -12)">
+    <rect x="1.5" y="1.5" width="21" height="21" rx="6.5" fill="url(#sw-logo-grad)" />
+    <path
+      d="M3.8 12 q2 -4.5 4 0 t4 0 L11.8 7.7 L15 7.7 L15 16.3 L18.2 16.3 L18.2 12 L20.2 12"
+      stroke="#ffffff"
+      stroke-width="1.7"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+      opacity="0.96"
+    />
+  </g>
 </svg>
