@@ -679,10 +679,33 @@ export default function App() {
 
   const closeAllFiles = async () => {
     setOpenMenu(null);
-    if (files.length && !(await askConfirm("Close all files? Their contents will be lost.", "Close all"))) return;
+    if (
+      (files.length || projects.length > 1) &&
+      !(await askConfirm(
+        "Close all files and reset the workspace? Every project and its files will be cleared and cannot be recovered.",
+        "Reset workspace"
+      ))
+    )
+      return;
+    // Wipe the whole workspace back to a single, empty project so both the editor
+    // and the project pane are cleared.
+    const fresh: WsProject = {
+      id: makeId(),
+      name: "My Project",
+      files: [],
+      activeId: "",
+      top: "",
+      flatten: false,
+      sampleName: "",
+    };
+    setProjects([fresh]);
+    setActiveProjectId(fresh.id);
     setFiles([]);
     setActiveId("");
-    setDiagnostics([]);
+    setTop("");
+    setFlatten(false);
+    setSampleName("");
+    clearOutputs();
   };
 
   const jumpTo = (file: string, line: number) => {
@@ -823,7 +846,7 @@ export default function App() {
     }
   };
 
-  const runSynthesis = async (modeOverride?: SynthMode) => {
+  const runSynthesis = async (modeOverride?: SynthMode, focusTab?: OutputTab) => {
     if (designSources().length === 0) {
       setOutputTab("log");
       showLog(
@@ -848,16 +871,19 @@ export default function App() {
       setNetlistJson(res.netlist ?? null);
       setStats(res.stats ?? null);
       setSrcMap(res.srcMap ?? null);
-      if (res.ok && res.svg) {
+      if (res.ok) {
         showLog(res.log || "");
-        setSvg(res.svg);
+        setSvg(res.svg ?? null);
         setResultEngine(engine);
-        setOutputTab("schematic");
+        // Land on the tab the run was launched for (e.g. Reports when the user
+        // clicked "Run gate-level synthesis" there); otherwise show the schematic
+        // if we have one, falling back to the log.
+        setOutputTab(focusTab ?? (res.svg ? "schematic" : "log"));
         if (res.renderError) showLog((res.log || "") + "\n\n[schematic render warning] " + res.renderError);
       } else {
         setSvg(null);
         setOutputTab("log");
-        showLog((res.log || "") + (res.ok && res.renderError ? "\n\nSchematic render failed: " + res.renderError : ""));
+        showLog(res.log || "Synthesis failed.");
       }
     } catch (e: any) {
       showLog("Request failed: " + (e?.message || String(e)));
@@ -1841,7 +1867,7 @@ export default function App() {
                 library={activeLib}
                 onRunGate={() => {
                   setSynthMode("gate");
-                  runSynthesis("gate");
+                  runSynthesis("gate", "reports");
                 }}
               />
             )}
