@@ -200,6 +200,21 @@ fn ensure_executable(p: &Path) {
 #[cfg(not(unix))]
 fn ensure_executable(_p: &Path) {}
 
+// SynthWave is a windowed (GUI) app with no console. On Windows, spawning a
+// console subsystem tool (iverilog/vvp/yosys) then allocates a brand-new console
+// for it, which flashes an empty black window on screen AND leaves the child's
+// stdio attached to that console instead of our pipes — so iverilog's own
+// sub-processes (ivlpp.exe/ivl.exe) can lose their handles and the run fails.
+// CREATE_NO_WINDOW runs the tool fully headless with our pipes intact.
+#[cfg(windows)]
+fn no_window(cmd: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+}
+#[cfg(not(windows))]
+fn no_window(_cmd: &mut Command) {}
+
 fn find_tool(name: &str) -> Option<String> {
     // Prefer the tools bundled inside the .app so we never depend on a system
     // install. Verilator is shipped as the real `verilator_bin` (we set
@@ -247,8 +262,10 @@ fn run(cmd: &str, args: &[&str], cwd: &Path) -> RunOut {
     command
         .args(&full_args)
         .current_dir(cwd)
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    no_window(&mut command);
     // yosys locates share/yosys and yosys-abc relative to its own executable,
     // so no env is needed for it. Verilator needs its data root, though.
     if cmd == "verilator" {
