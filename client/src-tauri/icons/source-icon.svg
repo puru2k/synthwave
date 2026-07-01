@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <linearGradient id="sw-logo-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4c8dff" />
+      <stop offset="1" stop-color="#36c2a8" />
+    </linearGradient>
+  </defs>
+  <rect x="1.5" y="1.5" width="21" height="21" rx="6.5" fill="url(#sw-logo-grad)" />
+  <path
+    d="M3.8 12 q2 -4.5 4 0 t4 0 L11.8 7.7 L15 7.7 L15 16.3 L18.2 16.3 L18.2 12 L20.2 12"
+    stroke="#ffffff"
+    stroke-width="1.7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+    opacity="0.96"
+  />
+</svg>
