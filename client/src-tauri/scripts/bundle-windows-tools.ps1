@@ -154,12 +154,26 @@ Copy-DataDir -RelFrom "verilator" -RelTo "share\verilator"
 # to them here — otherwise an older libstdc++ elsewhere on PATH wins and ivl.exe
 # fails with "entry point ... could not be located".
 $ivlDir = Join-Path $Dest "lib\ivl"
+# Make sure the C++ runtimes are in bin\ first; search the whole suite in case
+# they don't live under bin\ (layouts vary between suite releases).
+$runtimeNames = @("libstdc++-6.dll", "libgcc_s_seh-1.dll", "libgcc_s_dw2-1.dll", "libwinpthread-1.dll")
+foreach ($rn in $runtimeNames) {
+  if (-not (Test-Path (Join-Path $Dest "bin\$rn"))) {
+    $found = Get-ChildItem -Path $Suite -Filter $rn -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found) { Copy-Item $found.FullName (Join-Path $Dest "bin") -Force; Write-Host "    found $rn at $($found.FullName)" }
+  }
+}
 if (Test-Path $ivlDir) {
   $copied = 0
   Get-ChildItem (Join-Path $Dest "bin\*.dll") -ErrorAction SilentlyContinue | ForEach-Object {
     Copy-Item $_.FullName $ivlDir -Force; $copied++
   }
   Write-Host "    copied $copied runtime DLLs into lib\ivl"
+  if (Test-Path (Join-Path $ivlDir "libstdc++-6.dll")) {
+    Write-Host "    OK: libstdc++-6.dll is present next to ivl.exe"
+  } else {
+    Write-Host "    WARNING: libstdc++-6.dll was NOT found anywhere in the suite — ivl.exe will fail" -ForegroundColor Yellow
+  }
 }
 
 $total = "{0:N0}" -f ((Get-ChildItem $Dest -Recurse -File | Measure-Object Length -Sum).Sum / 1MB)
