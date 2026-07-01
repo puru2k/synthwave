@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.1.7"
+version = "0.1.8"
 description = "SynthWave desktop backend: runs the bundled iverilog/vvp/yosys/verilator toolchain"
 authors = ["SynthWave contributors"]
 license = "MIT"
