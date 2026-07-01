@@ -63,6 +63,90 @@ The desktop backend lives in [`client/src-tauri/src/tools.rs`](client/src-tauri/
 it locates the bundled toolchain, runs each tool in a temp dir, and returns raw
 text for the TypeScript layer to process.
 
+## Dependencies (full reference)
+
+Everything below is what the project is built from. Exact pinned versions live in
+the lockfiles (`package-lock.json`, `client/src-tauri/Cargo.lock`); the tables
+list the direct dependencies and their purpose so you can reproduce or fork the
+project. The GitHub workflows in [`.github/workflows/`](.github/workflows/) are
+the canonical, always-up-to-date recipe — [`ci.yml`](.github/workflows/ci.yml)
+(lint/test/build), [`deploy.yml`](.github/workflows/deploy.yml) (static site),
+and [`desktop.yml`](.github/workflows/desktop.yml) (macOS + Linux installers).
+
+### Build toolchains (install once)
+
+| Tool | Version | Needed for |
+| --- | --- | --- |
+| [Node.js](https://nodejs.org/) | **24.x** | frontend + server (all builds) |
+| [npm](https://www.npmjs.com/) | bundled with Node | dependency install / scripts |
+| [Rust](https://www.rust-lang.org/) (stable, incl. Cargo) | **≥ 1.77.2** | desktop app only (Tauri backend) |
+| [Tauri CLI](https://tauri.app/) | 2.x (via `@tauri-apps/cli`, installed by npm) | desktop app only |
+
+### EDA toolchain (native binaries)
+
+Used directly by the local **Server** engine, and **bundled into** the desktop
+app by the `bundle:tools:*` scripts. Not needed for the in-browser web app.
+
+| Package | Provides | macOS (Homebrew) | Linux (apt) |
+| --- | --- | --- | --- |
+| [Icarus Verilog](http://iverilog.icarus.com/) | `iverilog`, `vvp` — compile + run simulations | `icarus-verilog` | `iverilog` |
+| [Yosys](https://yosyshq.net/yosys/) | `yosys` — synthesis | `yosys` | `yosys` |
+| `yosys-abc` | ABC backend for gate-level synthesis | (bundled with `yosys`) | `yosys-abc` |
+| [Verilator](https://www.veripool.org/verilator/) | `verilator` — strict lint | `verilator` | `verilator` |
+| [patchelf](https://github.com/NixOS/patchelf) | relinks bundled `.so` closure (Linux packaging) | — | `patchelf` |
+
+```bash
+# macOS
+brew install node rust icarus-verilog yosys verilator
+# Linux (Ubuntu/Debian)
+sudo apt-get install -y iverilog yosys yosys-abc verilator patchelf
+```
+
+### WebAssembly toolchain (in-browser engine)
+
+Lets the app simulate/lint/synthesize with **no install**. The Icarus and
+Verilator builds are prebuilt and vendored in
+[`client/public/wasm/`](client/public/wasm/) (committed to the repo); Yosys is
+[YoWASP](https://yowasp.org/) via the `@yowasp/yosys` npm package.
+
+| Component | Source | Size |
+| --- | --- | --- |
+| Icarus Verilog (wasm) | vendored in `client/public/wasm/iverilog/` | ~10 MB |
+| Verilator (wasm) | vendored in `client/public/wasm/verilator/` | ~7 MB |
+| Yosys (wasm) | [`@yowasp/yosys`](https://www.npmjs.com/package/@yowasp/yosys) | ~50 MB (lazy) |
+
+### Frontend (`client/`, npm)
+
+- **Runtime:** [`react`](https://react.dev/) + `react-dom` 18, [`@monaco-editor/react`](https://www.npmjs.com/package/@monaco-editor/react) (code editor), [`netlistsvg`](https://github.com/nturley/netlistsvg) (schematic rendering), [`@yowasp/yosys`](https://www.npmjs.com/package/@yowasp/yosys) (wasm synthesis), [`@tauri-apps/api`](https://tauri.app/) (desktop bridge).
+- **Build/dev:** [`vite`](https://vitejs.dev/) 5 + `@vitejs/plugin-react`, [`typescript`](https://www.typescriptlang.org/) 5, [`@tauri-apps/cli`](https://tauri.app/) 2.
+- **Quality:** [`eslint`](https://eslint.org/) 9 (`@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks`), [`prettier`](https://prettier.io/) 3, [`vitest`](https://vitest.dev/) 2.
+
+### Server (`server/`, npm)
+
+Only used by the local Server engine: [`express`](https://expressjs.com/) 4,
+[`cors`](https://www.npmjs.com/package/cors), and `netlistsvg`. The repo root uses
+[`concurrently`](https://www.npmjs.com/package/concurrently) to run client + server
+together in dev.
+
+### Desktop backend (`client/src-tauri/`, Cargo)
+
+[`tauri`](https://tauri.app/) 2.11 (+ `tauri-build`, `tauri-plugin-log`),
+[`serde`](https://serde.rs/) / `serde_json`, [`log`](https://docs.rs/log/),
+[`tempfile`](https://docs.rs/tempfile/) (per-run scratch dirs), and
+[`wait-timeout`](https://docs.rs/wait-timeout/) (kill runaway tool processes).
+
+### Linux desktop system libraries
+
+Tauri links against the system WebKitGTK webview at build time, so a Linux desktop
+build additionally needs (see [`desktop.yml`](.github/workflows/desktop.yml)):
+
+```bash
+sudo apt-get install -y \
+  libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+  libayatana-appindicator3-dev libssl-dev build-essential \
+  curl wget file libfuse2t64      # libfuse2t64 = AppImage runtime (24.04+)
+```
+
 ## Prerequisites
 
 **None** for the in-browser web app or the desktop app — the toolchain is bundled.
