@@ -16,10 +16,8 @@
     "app:dev": "tauri dev",
     "app:build": "tauri build",
     "bundle:tools:mac": "bash src-tauri/scripts/bundle-macos-tools.sh",
-    "bundle:tools:win": "powershell -ExecutionPolicy Bypass -File src-tauri/scripts/bundle-windows-tools.ps1",
     "bundle:tools:linux": "bash src-tauri/scripts/bundle-linux-tools.sh",
     "app:build:mac": "npm run bundle:tools:mac && tauri build",
-    "app:build:win": "npm run bundle:tools:win && tauri build",
     "app:build:linux": "npm run bundle:tools:linux && tauri build"
   },
   "dependencies": {

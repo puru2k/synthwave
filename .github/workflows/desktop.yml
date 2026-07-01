@@ -1,7 +1,7 @@
 name: Desktop apps
 
-# Builds the self-contained desktop apps for macOS (Apple Silicon), Windows x64,
-# and Linux x64 on their native runners — each bundling the full EDA toolchain
+# Builds the self-contained desktop apps for macOS (Apple Silicon) and Linux x64
+# on their native runners — each bundling the full EDA toolchain
 # (Icarus Verilog, Yosys, Verilator) so the installers need no dependencies.
 #
 # Trigger manually from the Actions tab (Run workflow), or push a tag like v0.1.0
@@ -28,11 +28,6 @@ jobs:
             build: npm run app:build:mac
             artifacts: |
               client/src-tauri/target/release/bundle/dmg/*.dmg
-          - os: windows-latest
-            name: windows-x64
-            build: npm run app:build:win
-            artifacts: |
-              client/src-tauri/target/release/bundle/nsis/*-setup.exe
           - os: ubuntu-24.04
             name: linux-x64
             build: npm run app:build:linux

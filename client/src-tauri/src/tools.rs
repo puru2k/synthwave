@@ -77,27 +77,22 @@ struct RunOut {
 
 // Architecture-specific subdir of the bundled tools tree, matching the layout
 // produced by the bundling scripts (scripts/bundle-macos-tools.sh,
-// scripts/bundle-windows-tools.ps1) and shipped via tauri.conf.json resources.
+// scripts/bundle-linux-tools.sh) and shipped via tauri.conf.json resources.
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 const BUNDLE_ARCH: &str = "macos-arm64";
-#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-const BUNDLE_ARCH: &str = "windows-x64";
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 const BUNDLE_ARCH: &str = "linux-x64";
 #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
 const BUNDLE_ARCH: &str = "linux-arm64";
 #[cfg(not(any(
     all(target_os = "macos", target_arch = "aarch64"),
-    all(target_os = "windows", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "x86_64"),
     all(target_os = "linux", target_arch = "aarch64")
 )))]
 const BUNDLE_ARCH: &str = "unsupported";
 
-// Executable file extension for the host OS.
-#[cfg(windows)]
-const EXE_SUFFIX: &str = ".exe";
-#[cfg(not(windows))]
+// SynthWave desktop ships for macOS and Linux only, so tool binaries never carry
+// an executable extension.
 const EXE_SUFFIX: &str = "";
 
 // Candidate locations of the bundled `tools/` resource dir, used as a fallback
@@ -105,14 +100,13 @@ const EXE_SUFFIX: &str = "";
 // platform:
 //   macOS .app:  SynthWave.app/Contents/MacOS/SynthWave (exe)
 //                SynthWave.app/Contents/Resources/tools/...
-//   Windows:     <install>/SynthWave.exe  +  <install>/tools/... (next to exe)
 //   Linux:       /usr/bin/synthwave       +  /usr/lib/SynthWave/tools/...
 // Returns empty in `tauri dev` (no packaged resources) -> system-tool fallback.
 fn resource_roots() -> Vec<PathBuf> {
     let mut roots = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            // Windows / Linux AppImage: resources sit beside the executable.
+            // Linux AppImage: resources sit beside the executable.
             roots.push(dir.to_path_buf());
             if let Some(parent) = dir.parent() {
                 // macOS: MacOS/<exe> -> ../Resources
@@ -147,7 +141,7 @@ fn bundled_root() -> Option<PathBuf> {
 // A ` -exe <path>` argument for Yosys's `abc` pass pointing at the bundled
 // yosys-abc, or empty. Only needed on Linux, where the distro Yosys is built
 // with an absolute ABCEXTERNAL path that isn't present on the user's machine;
-// macOS/Windows Yosys finds yosys-abc next to its own binary.
+// macOS Yosys finds yosys-abc next to its own binary.
 fn bundled_abc_arg() -> String {
     #[cfg(target_os = "linux")]
     {
@@ -200,21 +194,6 @@ fn ensure_executable(p: &Path) {
 #[cfg(not(unix))]
 fn ensure_executable(_p: &Path) {}
 
-// SynthWave is a windowed (GUI) app with no console. On Windows, spawning a
-// console subsystem tool (iverilog/vvp/yosys) then allocates a brand-new console
-// for it, which flashes an empty black window on screen AND leaves the child's
-// stdio attached to that console instead of our pipes — so iverilog's own
-// sub-processes (ivlpp.exe/ivl.exe) can lose their handles and the run fails.
-// CREATE_NO_WINDOW runs the tool fully headless with our pipes intact.
-#[cfg(windows)]
-fn no_window(cmd: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    cmd.creation_flags(CREATE_NO_WINDOW);
-}
-#[cfg(not(windows))]
-fn no_window(_cmd: &mut Command) {}
-
 fn find_tool(name: &str) -> Option<String> {
     // Prefer the tools bundled inside the .app so we never depend on a system
     // install. Verilator is shipped as the real `verilator_bin` (we set
@@ -265,7 +244,6 @@ fn run(cmd: &str, args: &[&str], cwd: &Path) -> RunOut {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    no_window(&mut command);
     // yosys locates share/yosys and yosys-abc relative to its own executable,
     // so no env is needed for it. Verilator needs its data root, though.
     if cmd == "verilator" {
@@ -278,13 +256,12 @@ fn run(cmd: &str, args: &[&str], cwd: &Path) -> RunOut {
     }
 
     // Put the bundled bin dir first on PATH so child/grandchild processes resolve
-    // our shipped helpers and runtime libraries (e.g. iverilog -> ivl + its MinGW
-    // DLLs on Windows, yosys -> yosys-abc on Linux) instead of system copies.
+    // our shipped helpers and runtime libraries (e.g. iverilog -> ivl, yosys ->
+    // yosys-abc on Linux) instead of system copies.
     if let Some(ref root) = bundled {
         let bin = root.join("bin");
-        let sep = if cfg!(windows) { ';' } else { ':' };
         let prev = std::env::var("PATH").unwrap_or_default();
-        command.env("PATH", format!("{}{}{}", bin.to_string_lossy(), sep, prev));
+        command.env("PATH", format!("{}:{}", bin.to_string_lossy(), prev));
     }
 
     let child = command.spawn();
