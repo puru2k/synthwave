@@ -13,7 +13,6 @@ export default function FSMDiagram({ fsm, labels }: Props) {
   const { states } = fsm;
   const N = states.length;
   const isMoore = fsm.kind === "moore";
-  const isMealy = fsm.kind === "mealy";
 
   const { W, H, pos } = useMemo(() => {
     const radius = Math.max(130, 46 * N);

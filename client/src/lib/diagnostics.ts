@@ -8,7 +8,7 @@ export interface Diagnostic {
 // Matches a "file.v:line" or "file.v:line:col" reference anywhere in a line:
 //   Icarus/Yosys:  "design.v:12: syntax error"
 //   Verilator:     "%Warning-WIDTH: design.v:5:10: Operator ..."
-const LINE_RE = /([\w./\-]+\.s?v):(\d+)(?::(\d+))?:\s*(.*)$/;
+const LINE_RE = /([\w./-]+\.s?v):(\d+)(?::(\d+))?:\s*(.*)$/;
 
 export function parseDiagnostics(log: string): Diagnostic[] {
   const out: Diagnostic[] = [];

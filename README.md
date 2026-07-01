@@ -2,32 +2,78 @@
 
 > ⚠️ **Work in progress** — SynthWave is still in active development. Features may change, and you may run into bugs or incomplete functionality. Feedback and bug reports are very welcome!
 
-A web app to **write Verilog**, **simulate it with waveforms**, and **see what it synthesizes into** — runs fully in the browser (WebAssembly), so it can be hosted as a free static site.
+SynthWave is a Verilog/SystemVerilog IDE to **write**, **simulate**, **lint**, and
+**synthesize** hardware designs. It runs the same feature set three ways: fully
+in the browser (WebAssembly), against a local Node server, or as a self-contained
+native desktop app with the toolchain bundled in.
 
-- ✍️ Monaco-based editor with Verilog syntax highlighting (design + testbench)
-- 📈 Simulation with [Icarus Verilog](http://iverilog.icarus.com/) → interactive VCD waveform viewer
-- ⚙️ Synthesis with [Yosys](https://yosyshq.net/yosys/) → rendered circuit schematic (via netlistsvg)
+- ✍️ Monaco-based editor with Verilog syntax highlighting, multi-file/multi-project
+  workspaces, and cross-highlighting between the schematic and source.
+- 📈 Simulation with [Icarus Verilog](http://iverilog.icarus.com/) → an interactive
+  VCD waveform viewer.
+- 🩺 Linting: basic (Icarus `-Wall`) and strict ([Verilator](https://www.veripool.org/verilator/)),
+  surfaced as inline editor diagnostics.
+- ⚙️ Synthesis with [Yosys](https://yosyshq.net/yosys/) → a rendered circuit
+  schematic (via [netlistsvg](https://github.com/nturley/netlistsvg)), RTL and
+  gate-level (with generic, Sky130, or custom Liberty libraries).
+- 📊 Synthesis reports (cell/FF counts, logic depth, and area/delay estimates for
+  gate-level runs) and an extracted **FSM state diagram**.
 
 ## Architecture
 
+SynthWave is one React frontend that can be driven by three interchangeable
+**engines**, all exposing the same `simulate` / `lint` / `synthesize` / `extractFsm`
+API (see [`client/src/lib/api.ts`](client/src/lib/api.ts)):
+
+| Engine | When it's used | Runs the tools via |
+| --- | --- | --- |
+| **In-browser (wasm)** | default on the web / static hosts | WebAssembly builds of Icarus, Verilator, and Yosys in Web Workers |
+| **Server** | local dev with `npm run dev` | Express backend shelling out to system `iverilog`/`vvp`/`yosys`/`verilator` |
+| **Native** | inside the desktop app | Rust (Tauri) commands running the **bundled** binaries |
+
+A key design decision: **the engines only produce raw tool output** (VCD text,
+netlist JSON, logs). All parsing, schematic rendering, stats, and FSM extraction
+live once in the TypeScript layer (`client/src/lib/`), so behavior is identical
+across engines and there is no logic duplicated in Rust or the server.
+
 ```
-client/   Vite + React + TypeScript frontend (editor, waveform viewer, schematic)
-server/   Express backend that shells out to iverilog / vvp / yosys
+client/            Vite + React + TypeScript frontend (all UI + shared post-processing)
+  src/App.tsx        Top-level app: workspace state, run orchestration, layout
+  src/components/    Editor, waveform viewer, schematic, FSM diagram, reports
+  src/lib/           Engine clients + shared parsing/render logic (see below)
+  src/workers/       Web Workers wrapping the wasm toolchains
+  src-tauri/         Rust (Tauri) desktop backend + per-platform tool bundling
+  public/wasm/       Committed wasm toolchain artifacts served to the browser
+server/            Express backend used only by the local "Server" engine
 ```
 
-The frontend talks to the backend over `/api`. In dev, Vite proxies `/api` to the
-server on port 4000.
+Key modules in `client/src/lib/` (a good place for a new contributor to start):
+
+- `api.ts` — engine router; picks native/server/wasm and defines the shared types.
+- `native.ts` — desktop bridge to the Tauri Rust commands.
+- `clientSim.ts` / `clientSynth.ts` — in-browser (wasm) simulate/lint/synthesize.
+- `netlist.ts` / `reports.ts` — netlist → schematic SVG, stats, and reports.
+- `fsm.ts` / `fsmSource.ts` — FSM extraction (source-level, preserving Moore/Mealy).
+- `vcd.ts` — VCD waveform parsing.
+- `workspace.ts` / `persist.ts` — multi-project workspace model + localStorage.
+
+The desktop backend lives in [`client/src-tauri/src/tools.rs`](client/src-tauri/src/tools.rs):
+it locates the bundled toolchain, runs each tool in a temp dir, and returns raw
+text for the TypeScript layer to process.
 
 ## Prerequisites
 
-These command-line tools must be installed and on your `PATH`:
+**None** for the in-browser web app or the desktop app — the toolchain is bundled.
+The prerequisites below are only needed to run the local **Server** engine
+(`npm run dev`), which shells out to your system tools:
 
 ```bash
-brew install node icarus-verilog yosys
+brew install node icarus-verilog yosys   # + `verilator` for strict lint
 ```
 
 - `iverilog`, `vvp` — compile and run simulations
 - `yosys` — synthesis
+- `verilator` (optional) — strict lint
 
 ## Setup
 

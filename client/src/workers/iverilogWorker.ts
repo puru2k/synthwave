@@ -207,7 +207,7 @@ function dataBasename(name: string, fallback: string): string {
   const segs = (name || "")
     .replace(/\\/g, "/")
     .split("/")
-    .map((s) => s.replace(/[^A-Za-z0-9_.\-]/g, "_"))
+    .map((s) => s.replace(/[^A-Za-z0-9_.-]/g, "_"))
     .filter((s) => s && s !== "." && s !== "..");
   return segs.length ? segs.join("/") : fallback;
 }

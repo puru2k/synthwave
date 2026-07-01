@@ -45,11 +45,6 @@ const indexRef: { current: VIndex } = { current: { modules: [], signals: [] } };
 const jumpRef: { current: ((file: string, line: number) => void) | null } = { current: null };
 const fileRef: { current: string } = { current: "" };
 
-function baseName(uri: any): string {
-  const p = String(uri?.path || uri || "");
-  return p.split("/").pop() || p;
-}
-
 const VERILOG_KEYWORDS = [
   "module", "endmodule", "input", "output", "inout", "wire", "reg", "logic",
   "assign", "always", "always_ff", "always_comb", "always_latch", "initial",
@@ -84,7 +79,7 @@ function registerVerilog(monaco: any) {
         [/\/\/.*$/, "comment"],
         [/\/\*/, "comment", "@comment"],
         [/"/, "string", "@string"],
-        [/[{}()\[\]]/, "@brackets"],
+        [/[{}()[\]]/, "@brackets"],
         [/[;,.]/, "delimiter"],
       ],
       comment: [

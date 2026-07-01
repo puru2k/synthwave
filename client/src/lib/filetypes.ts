@@ -29,7 +29,7 @@ export function sanitizeName(name: string): string {
     .trim()
     .replace(/\\/g, "/")
     .split("/")
-    .map((s) => s.replace(/[^A-Za-z0-9_.\-]/g, "_"))
+    .map((s) => s.replace(/[^A-Za-z0-9_.-]/g, "_"))
     .filter((s) => s && s !== "." && s !== "..");
   return segs.join("/") || "untitled.v";
 }

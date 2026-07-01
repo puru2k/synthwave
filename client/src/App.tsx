@@ -276,6 +276,9 @@ export default function App() {
       warmupSim();
       if (bootWs.settings.lintLevel === "strict") warmupStrictLint();
     }
+    // Runs once on mount; bootWs is the immutable boot snapshot, so reading its
+    // settings here does not need to re-trigger the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Open a shared project from the URL hash (#p=...), once on mount.
@@ -944,19 +947,6 @@ export default function App() {
     setFsmLog("");
     setTestResult({ status: "none", passes: 0, fails: 0 });
     setDiagnostics([]);
-  };
-
-  const loadSample = (name: string) => {
-    const s = SAMPLES.find((x) => x.name === name);
-    if (!s) return;
-    const nf = filesFromSample(s);
-    setSampleName(s.name);
-    setFiles(nf);
-    setActiveId(nf[0].id);
-    setTop("");
-    clearOutputs();
-    setLog("Loaded example: " + s.name);
-    setOpenMenu(null);
   };
 
   // Open an example in a brand-new project, preserving the current one.

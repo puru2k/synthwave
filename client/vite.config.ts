@@ -15,6 +15,23 @@ export default defineConfig({
       "webworker-threads": emptyShim,
     },
   },
+  build: {
+    // The schematic renderer (netlistsvg + its elkjs layout engine) is ~1.3 MB but
+    // is dynamically imported (see clientSynth.ts), so it only downloads on the
+    // first synthesis — never on initial page load. Raise the warning threshold
+    // above it so an otherwise-clean build doesn't emit a spurious size warning.
+    chunkSizeWarningLimit: 1500,
+    // Split large third-party libraries into their own long-lived chunks so app
+    // edits don't bust their cache and the initial JS parses in parallel.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom"],
+          schematic: ["netlistsvg", "elkjs"],
+        },
+      },
+    },
+  },
   optimizeDeps: {
     // Vite's dependency pre-bundler runs esbuild, which does NOT honor
     // resolve.alias — so stub the Node-only require here too, otherwise dev

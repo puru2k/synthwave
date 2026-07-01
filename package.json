@@ -1,8 +1,8 @@
 {
-  "name": "verilog-studio",
+  "name": "synthwave",
   "version": "1.0.0",
   "private": true,
-  "description": "Write Verilog, simulate it with waveforms, and see what it synthesizes into.",
+  "description": "SynthWave — write, simulate, lint, and synthesize Verilog/SystemVerilog. Runs in-browser (WebAssembly), against a local server, or as a self-contained desktop app.",
   "scripts": {
     "install:all": "npm --prefix server install && npm --prefix client install",
     "dev": "concurrently -n server,client -c blue,green \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
