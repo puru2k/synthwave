@@ -1,11 +1,13 @@
 # SynthWave
 
-> ⚠️ **Work in progress** — SynthWave is still in active development. Features may change, and you may run into bugs or incomplete functionality. Feedback and bug reports are very welcome!
+> ⚠️ **Work in progress** — SynthWave is a hobby/test project, still in active development. Features may change, and you may run into bugs or incomplete functionality. Feedback and bug reports are very welcome!
 
-SynthWave is a Verilog/SystemVerilog IDE to **write**, **simulate**, **lint**, and
-**synthesize** hardware designs. It runs the same feature set three ways: fully
-in the browser (WebAssembly), against a local Node server, or as a self-contained
-native desktop app with the toolchain bundled in.
+SynthWave is a hobby/test project: a **one-stop spot to quickly lint, simulate,
+and synthesize** small Verilog/SystemVerilog snippets, without spinning up a full
+EDA toolchain locally. You **write** code and get VCD waveforms, schematics, FSM
+diagrams, and timing/area/power reports right away. It runs the same feature set
+three ways: fully in the browser (WebAssembly), against a local Node server, or as
+a self-contained native desktop app with the toolchain bundled in.
 
 - ✍️ Monaco-based editor with Verilog syntax highlighting, multi-file/multi-project
   workspaces, and cross-highlighting between the schematic and source.
