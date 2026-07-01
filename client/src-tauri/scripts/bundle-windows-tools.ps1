@@ -151,7 +151,7 @@ Copy-DataDir -RelFrom "verilator" -RelTo "share\verilator"
 # iverilog's sub-executables (ivl.exe, ivlpp.exe) live in lib\ivl and load the
 # MinGW runtime (libstdc++-6.dll, libgcc_s_seh-1.dll, libwinpthread-1.dll). A
 # Windows EXE searches its OWN directory first, so the correct DLLs must sit next
-# to them here — otherwise an older libstdc++ elsewhere on PATH wins and ivl.exe
+# to them here -- otherwise an older libstdc++ elsewhere on PATH wins and ivl.exe
 # fails with "entry point ... could not be located".
 $ivlDir = Join-Path $Dest "lib\ivl"
 # Make sure the C++ runtimes are in bin\ first; search the whole suite in case
@@ -172,7 +172,7 @@ if (Test-Path $ivlDir) {
   if (Test-Path (Join-Path $ivlDir "libstdc++-6.dll")) {
     Write-Host "    OK: libstdc++-6.dll is present next to ivl.exe"
   } else {
-    Write-Host "    WARNING: libstdc++-6.dll was NOT found anywhere in the suite — ivl.exe will fail" -ForegroundColor Yellow
+    Write-Host "    WARNING: libstdc++-6.dll was NOT found anywhere in the suite -- ivl.exe will fail" -ForegroundColor Yellow
   }
 }
 
