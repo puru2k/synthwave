@@ -1,5 +1,7 @@
 # SynthWave
 
+> ⚠️ **Work in progress** — SynthWave is still in active development. Features may change, and you may run into bugs or incomplete functionality. Feedback and bug reports are very welcome!
+
 A web app to **write Verilog**, **simulate it with waveforms**, and **see what it synthesizes into** — runs fully in the browser (WebAssembly), so it can be hosted as a free static site.
 
 - ✍️ Monaco-based editor with Verilog syntax highlighting (design + testbench)
