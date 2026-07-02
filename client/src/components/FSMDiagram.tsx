@@ -47,8 +47,6 @@ export default function FSMDiagram({ fsm, labels }: Props) {
     }));
   }, [fsm.transitions, fsm.fromSource]);
 
-  const idx = (s: string) => states.indexOf(s);
-
   return (
     <div className="fsm-wrap">
       <div className="fsm-toolbar">
@@ -103,8 +101,13 @@ export default function FSMDiagram({ fsm, labels }: Props) {
             const uy = dy / len;
             const px = -uy;
             const py = ux;
-            const sign = idx(e.from) < idx(e.to) ? 1 : -1;
-            const off = e.bidir ? 30 * sign : 0;
+            // Each direction of a bidirectional pair curves to its own left. px
+            // is the left-normal of the travel direction and already flips
+            // between the two directions, so a fixed positive offset naturally
+            // separates them onto opposite sides (and keeps each label with its
+            // own arrow). Multiplying by an index-based sign here double-flips
+            // and makes both edges/labels overlap — the S2<->S3 ambiguity.
+            const off = e.bidir ? 30 : 0;
             const s = { x: from.x + ux * NODE_R, y: from.y + uy * NODE_R };
             const en = { x: to.x - ux * NODE_R, y: to.y - uy * NODE_R };
             const mid = { x: (s.x + en.x) / 2 + px * off, y: (s.y + en.y) / 2 + py * off };

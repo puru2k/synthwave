@@ -61,6 +61,18 @@ describe("extractFsmFromSource", () => {
     expect(fsm!.kind).toBe("mealy");
   });
 
+  it("extracts correct guarded transitions for the overlapping 1011 Moore detector", () => {
+    const fsm = extractFsmFromSource([{ name: "m.v", content: moore }], "moore_1011")!;
+    const edge = (from: string, to: string) => fsm.transitions.find((t) => t.from === from && t.to === to);
+    // S2 branches: din -> S3, else -> S0 (the transition the diagram flagged).
+    expect(edge("S2", "S3")?.cond).toBe("din");
+    expect(edge("S2", "S0")?.cond).toBe("!din");
+    // S2<->S3 is a genuine bidirectional pair (S3 -> S2 on !din).
+    expect(edge("S3", "S2")?.cond).toBe("!din");
+    // Moore: detected/output lives in the accepting state, not on edges.
+    expect(fsm.stateOutputs?.S3).toContain("y=1");
+  });
+
   it("returns null for a non-FSM module", () => {
     const fsm = extractFsmFromSource(
       [{ name: "x.v", content: "module add(input [3:0] a, b, output [3:0] s); assign s = a + b; endmodule" }],
