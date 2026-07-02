@@ -289,7 +289,7 @@ interface Props {
   onReady?: (editor: any, monaco: any) => void;
 }
 
-export default function CodeEditor({ value, onChange, height = "100%", path, language = "verilog", markers = [], index, themeId = "dark-plus", smartSuggestions = true, onJump, onReady }: Props) {
+export default function CodeEditor({ value, onChange, height = "100%", path, language = "verilog", markers = [], index, themeId = "night", smartSuggestions = true, onJump, onReady }: Props) {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
 

@@ -47,7 +47,7 @@ import { formatVerilog } from "./lib/format";
 import TestbenchDialog from "./components/TestbenchDialog";
 import { isHdl, monacoLanguage, sanitizeName, splitExt } from "./lib/filetypes";
 import { onToolchainProgress, type ToolProgress } from "./lib/toolchain";
-import { THEMES, getTheme, applyThemeVars, resolveThemeId } from "./lib/themes";
+import { getTheme, applyThemeVars, resolveThemeId, normalizeThemePref } from "./lib/themes";
 import {
   Logo,
   IconActivity,
@@ -169,7 +169,7 @@ export default function App() {
   // In the desktop (Tauri) build, default to the native CLI toolchain; in the
   // browser, honor the saved engine (wasm for static deploys, server locally).
   const [engine, setEngine] = useState<SynthEngine>(isTauri() ? "server" : bootWs.settings.engine);
-  const [theme, setTheme] = useState<string>(bootWs.settings.theme ?? "dark-plus");
+  const [theme, setTheme] = useState<string>(normalizeThemePref(bootWs.settings.theme));
   const [smartSuggestions, setSmartSuggestions] = useState(bootWs.settings.smartSuggestions ?? true);
   // On phones the sidebar is a slide-over drawer; start it closed so it doesn't
   // cover the editor on first load.
@@ -1243,9 +1243,8 @@ export default function App() {
                   <span className="menu-label">Theme</span>
                   <select value={theme} onChange={(e) => setTheme(e.target.value)}>
                     <option value="auto">Auto (match system)</option>
-                    {THEMES.map((t) => (
-                      <option key={t.id} value={t.id}>{t.label}</option>
-                    ))}
+                    <option value="day">Day</option>
+                    <option value="night">Night</option>
                   </select>
                 </div>
                 <label className="menu-check">
