@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ParsedModule } from "../lib/ports";
-import { defaultStim, generateTestbench, type PortStim, type StimKind, type TbSpec } from "../lib/tbgen";
+import { defaultStim, generateTestbench, type PortStim, type SeqUnit, type StimKind, type TbSpec } from "../lib/tbgen";
 import { IconClose, IconPlay } from "./Icons";
 
 interface Props {
@@ -42,6 +42,12 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
   const [stim, setStim] = useState<Record<string, PortStim>>(() => (mod ? defaultStim(mod.ports) : {}));
   const [simEndNs, setSimEndNs] = useState(hasClock ? 200 : 100);
   const [timescale, setTimescale] = useState("1ns / 1ps");
+  // Sequence step units: absolute ns, or clock cycles (edge-synced) for clocked
+  // designs. Only meaningful when a clock exists.
+  const [seqUnit, setSeqUnit] = useState<SeqUnit>("ns");
+  const clockPort = inputs.find((p) => stim[p.name]?.kind === "clock");
+  const clockPeriod = clockPort ? stim[clockPort.name].periodNs || 10 : 0;
+  const byCycle = seqUnit === "cycles" && !!clockPort;
   // Raw, per-input text for the "Sequence" field. Kept separate from the parsed
   // `steps` so the box shows exactly what the user types (commas, partial pairs,
   // trailing spaces) instead of a value reserialized on every keystroke — which
@@ -68,16 +74,18 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
   };
 
   const spec: TbSpec | null = mod
-    ? { top: mod.name, ports: mod.ports, stim, simEndNs, timescale, instName: "dut" }
+    ? { top: mod.name, ports: mod.ports, stim, simEndNs, timescale, instName: "dut", seqUnit }
     : null;
   const preview = spec ? generateTestbench(spec) : "";
   const fileName = mod ? `${mod.name}_tb.v` : "testbench.v";
 
   // Sequence steps scheduled at/after the sim end never run — flag them so the
-  // user can extend "Sim length" or trim the sequence.
+  // user can extend "Sim length" or trim the sequence. In cycle mode a step's
+  // real time is (cycle × clock period).
+  const stepEndNs = (timeNs: number) => (byCycle ? timeNs * clockPeriod : timeNs);
   const lateSeqInputs = inputs
     .filter((p) => stim[p.name]?.kind === "steps")
-    .filter((p) => (stim[p.name].steps || []).some((st) => st.timeNs >= simEndNs))
+    .filter((p) => (stim[p.name].steps || []).some((st) => stepEndNs(st.timeNs) >= simEndNs))
     .map((p) => p.name);
 
   return (
@@ -121,6 +129,15 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
                   Timescale
                   <input value={timescale} onChange={(e) => setTimescale(e.target.value)} />
                 </label>
+                {clockPort && (
+                  <label className="tb-field">
+                    Sequence units
+                    <select value={seqUnit} onChange={(e) => setSeqUnit(e.target.value as SeqUnit)}>
+                      <option value="ns">Time (ns)</option>
+                      <option value="cycles">Clock cycles ({clockPort.name})</option>
+                    </select>
+                  </label>
+                )}
               </div>
 
               {inputs.length === 0 ? (
@@ -206,7 +223,7 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
                                   className="mono"
                                   value={stepText[p.name] ?? stepsToStr(s.steps)}
                                   onChange={(e) => updateSteps(p.name, e.target.value)}
-                                  placeholder="time:value, e.g. 0:0, 20:1, 40:0"
+                                  placeholder={byCycle ? "cycle:value, e.g. 0:0, 2:1, 4:0" : "time:value, e.g. 0:0, 20:1, 40:0"}
                                 />
                               </label>
                             )}
@@ -218,11 +235,20 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
                 </table>
               )}
               <p className="muted tb-hint">
-                Times are in timescale units, absolute from t=0. Enter{" "}
-                <span className="mono">time:value</span> pairs separated by spaces or commas, e.g.{" "}
-                <span className="mono">1:0 2:0 3:1</span>. Each input runs on its own timeline, so giving two
-                inputs the same time changes them together (e.g. <span className="mono">a: 1:1</span> and{" "}
-                <span className="mono">b: 1:1</span> both fire at t=1).
+                {byCycle ? (
+                  <>
+                    Sequence times are <b>{clockPort!.name} clock cycles</b>; each value is applied on the clock’s
+                    negedge so it’s stable before the next posedge. Enter <span className="mono">cycle:value</span>{" "}
+                    pairs separated by spaces or commas, e.g. <span className="mono">0:0 2:1 4:0</span>.
+                  </>
+                ) : (
+                  <>
+                    Times are in timescale units, absolute from t=0. Enter <span className="mono">time:value</span>{" "}
+                    pairs separated by spaces or commas, e.g. <span className="mono">1:0 2:0 3:1</span>.
+                  </>
+                )}{" "}
+                Each input runs on its own timeline, so giving two inputs the same time changes them together (e.g.{" "}
+                <span className="mono">a: 1:1</span> and <span className="mono">b: 1:1</span>).
               </p>
               {lateSeqInputs.length > 0 && (
                 <p className="tb-warn">

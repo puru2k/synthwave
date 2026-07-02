@@ -76,4 +76,28 @@ describe("generateTestbench — sequential", () => {
     const tb = build(src, "counter", { simEndNs: 5 });
     expect(tb).toContain("#(21);");
   });
+
+  it("drives cycle-based sequences on the clock negedge when seqUnit=cycles", () => {
+    const tb = build(src, "counter", {
+      simEndNs: 200,
+      seqUnit: "cycles",
+      stim: {
+        en: { name: "en", kind: "steps", steps: [{ timeNs: 0, value: "0" }, { timeNs: 2, value: "1" }, { timeNs: 5, value: "0" }] },
+      },
+    });
+    expect(tb).toContain("// en sequence (by clk cycle)");
+    expect(tb).toContain("en = 0; // cycle 0");
+    expect(tb).toContain("repeat (2) @(negedge clk); en = 1; // cycle 2");
+    expect(tb).toContain("repeat (3) @(negedge clk); en = 0; // cycle 5");
+  });
+
+  it("falls back to ns timing in cycle mode when there is no clock", () => {
+    const comb = "module g(input a, output y); endmodule";
+    const tb = build(comb, "g", {
+      seqUnit: "cycles",
+      stim: { a: { name: "a", kind: "steps", steps: [{ timeNs: 3, value: "1" }] } },
+    });
+    expect(tb).not.toContain("negedge");
+    expect(tb).toContain("#(3) a = 1;");
+  });
 });

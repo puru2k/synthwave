@@ -16,6 +16,14 @@ export interface PortStim {
   steps?: Array<{ timeNs: number; value: string }>; // steps
 }
 
+// How "Sequence" step times are interpreted:
+//   "ns"     -> absolute simulation time (default)
+//   "cycles" -> clock cycles of the reference clock; changes are applied on the
+//               clock's negedge so they're stable before the next posedge (no
+//               race with posedge-sampled logic). Falls back to "ns" if the
+//               design has no clock.
+export type SeqUnit = "ns" | "cycles";
+
 export interface TbSpec {
   top: string;
   ports: ModulePort[];
@@ -23,6 +31,7 @@ export interface TbSpec {
   simEndNs: number;
   timescale: string; // e.g. "1ns / 1ps"
   instName: string;
+  seqUnit?: SeqUnit;
 }
 
 // Prefer the numeric (param-resolved) range so the testbench compiles even when
@@ -122,25 +131,43 @@ export function generateTestbench(spec: TbSpec): string {
 
   // Stepped sequences. Each input gets its OWN initial block so all sequences
   // run concurrently on the same t=0 timeline — give two inputs the same time
-  // and they change together (e.g. a "1:1" and b "1:1" both fire at t=1). The
-  // #() delays are relative to the previous point in that input's sequence.
+  // and they change together (e.g. a "1:1" and b "1:1" both fire at t=1).
+  const clockName = clocks[0]?.name;
+  const byCycle = spec.seqUnit === "cycles" && !!clockName;
   const stepInputs = inputs.filter((p) => spec.stim[p.name]?.kind === "steps");
   for (const p of stepInputs) {
     const steps = (spec.stim[p.name].steps || []).slice().sort((a, b) => a.timeNs - b.timeNs);
     if (!steps.length) continue;
     L.push("");
-    L.push(`  // ${p.name} sequence`);
-    L.push(`  initial begin`);
     const zero = steps.find((st) => st.timeNs === 0);
-    L.push(`    ${p.name} = ${zero ? zero.value : "0"}; // t=0`);
-    let prev = 0;
-    for (const st of steps) {
-      if (st.timeNs === 0) continue; // already applied as the t=0 value
-      const dt = Math.max(0, st.timeNs - prev);
-      L.push(`    #(${dt}) ${p.name} = ${st.value}; // t=${st.timeNs}`);
-      prev = st.timeNs;
+    if (byCycle) {
+      // Cycle-based: advance with @(negedge clk) and drive there, so values are
+      // stable before the next posedge that the DUT samples.
+      L.push(`  // ${p.name} sequence (by ${clockName} cycle)`);
+      L.push(`  initial begin`);
+      L.push(`    ${p.name} = ${zero ? zero.value : "0"}; // cycle 0`);
+      let prev = 0;
+      for (const st of steps) {
+        if (st.timeNs === 0) continue;
+        const dc = Math.max(1, Math.round(st.timeNs - prev));
+        L.push(`    repeat (${dc}) @(negedge ${clockName}); ${p.name} = ${st.value}; // cycle ${st.timeNs}`);
+        prev = st.timeNs;
+      }
+      L.push(`  end`);
+    } else {
+      // Time-based: relative #() delays from t=0.
+      L.push(`  // ${p.name} sequence`);
+      L.push(`  initial begin`);
+      L.push(`    ${p.name} = ${zero ? zero.value : "0"}; // t=0`);
+      let prev = 0;
+      for (const st of steps) {
+        if (st.timeNs === 0) continue; // already applied as the t=0 value
+        const dt = Math.max(0, st.timeNs - prev);
+        L.push(`    #(${dt}) ${p.name} = ${st.value}; // t=${st.timeNs}`);
+        prev = st.timeNs;
+      }
+      L.push(`  end`);
     }
-    L.push(`  end`);
   }
 
   L.push(`endmodule`);
