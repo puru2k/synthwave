@@ -375,6 +375,11 @@ body.dragging-col .sidebar-resizer { background: color-mix(in srgb, var(--accent
   flex-direction: column;
   gap: 6px;
 }
+/* Compact icon-only actions (upload / share / export) — labels live in tooltips. */
+.side-actions { display: flex; gap: var(--s-2); }
+/* The export button sits at the right of the row, so open its popover
+   right-aligned and give it real width (the base .menu-up is 0-width). */
+.sidebar-foot .menu-up { left: auto; right: 0; min-width: 210px; }
 .side-btn {
   display: flex;
   align-items: center;

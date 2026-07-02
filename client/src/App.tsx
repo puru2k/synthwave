@@ -1526,22 +1526,38 @@ export default function App() {
             )}
 
             <div className="sidebar-foot">
-              {!isTauri() && (
-                <button className="side-btn" onClick={shareLink} title="Copy a shareable link to this project">
-                  <IconShare /> Share link
-                </button>
-              )}
-              <div className="menu-wrap">
+              <div className="side-actions">
                 <button
-                  className="side-btn"
-                  disabled={!hasAnyArtifact}
-                  onClick={() => setOpenMenu((m) => (m === "export" ? null : "export"))}
+                  className="icon-btn"
+                  onClick={() => uploadRef.current?.click()}
+                  title="Upload files from your computer"
+                  aria-label="Upload files from your computer"
                 >
-                  <IconDownload /> Export
+                  <IconUpload />
                 </button>
-                {openMenu === "export" && (
-                  <div className="menu menu-up">
-                    <span className="menu-label">Download</span>
+                {!isTauri() && (
+                  <button
+                    className="icon-btn"
+                    onClick={shareLink}
+                    title="Copy a shareable link to this project"
+                    aria-label="Copy a shareable link to this project"
+                  >
+                    <IconShare />
+                  </button>
+                )}
+                <div className="menu-wrap">
+                  <button
+                    className="icon-btn"
+                    disabled={!hasAnyArtifact}
+                    onClick={() => setOpenMenu((m) => (m === "export" ? null : "export"))}
+                    title="Export / download generated files"
+                    aria-label="Export / download generated files"
+                  >
+                    <IconDownload />
+                  </button>
+                  {openMenu === "export" && (
+                    <div className="menu menu-up">
+                      <span className="menu-label">Download</span>
                     {artifacts.map((a) => (
                       <button
                         key={a.name}
@@ -1563,8 +1579,17 @@ export default function App() {
                       All files (.zip)
                     </button>
                   </div>
-                )}
+                  )}
+                </div>
               </div>
+              <input
+                ref={uploadRef}
+                type="file"
+                accept=".v,.sv,.svh,.vh,.vhd,.txt,.md,.json,.csv,.log,.mem,.hex,.dat,.tcl,.do,.sdc,.xdc,.f,.yml,.yaml,text/*"
+                multiple
+                style={{ display: "none" }}
+                onChange={onUploadFiles}
+              />
             </div>
           </aside>
         )}
@@ -1677,17 +1702,6 @@ export default function App() {
             <button className="ftab-add" title="New file" onClick={addFile}>
               <IconPlus />
             </button>
-            <button className="ftab-add" title="Upload files from your computer" onClick={() => uploadRef.current?.click()}>
-              <IconUpload />
-            </button>
-            <input
-              ref={uploadRef}
-              type="file"
-              accept=".v,.sv,.svh,.vh,.vhd,.txt,.md,.json,.csv,.log,.mem,.hex,.dat,.tcl,.do,.sdc,.xdc,.f,.yml,.yaml,text/*"
-              multiple
-              style={{ display: "none" }}
-              onChange={onUploadFiles}
-            />
             <div className="spacer" />
             <button
               className="max-btn"
