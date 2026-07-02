@@ -1377,6 +1377,7 @@ body.dragging-col * { user-select: none !important; }
 .tb-steps { width: 100%; }
 .tb-steps input { width: 100%; min-width: 160px; }
 .tb-hint { margin: 10px 0 0; font-size: 11px; }
+.tb-warn { margin: 6px 0 0; font-size: 11px; color: var(--yellow); }
 .tb-preview { display: flex; flex-direction: column; min-width: 0; }
 .tb-preview-head { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
 .tb-preview-code {

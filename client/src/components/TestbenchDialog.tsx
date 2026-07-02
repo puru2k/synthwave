@@ -73,6 +73,13 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
   const preview = spec ? generateTestbench(spec) : "";
   const fileName = mod ? `${mod.name}_tb.v` : "testbench.v";
 
+  // Sequence steps scheduled at/after the sim end never run — flag them so the
+  // user can extend "Sim length" or trim the sequence.
+  const lateSeqInputs = inputs
+    .filter((p) => stim[p.name]?.kind === "steps")
+    .filter((p) => (stim[p.name].steps || []).some((st) => st.timeNs >= simEndNs))
+    .map((p) => p.name);
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal tb-dialog" onClick={(e) => e.stopPropagation()}>
@@ -217,6 +224,12 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
                 inputs the same time changes them together (e.g. <span className="mono">a: 1:1</span> and{" "}
                 <span className="mono">b: 1:1</span> both fire at t=1).
               </p>
+              {lateSeqInputs.length > 0 && (
+                <p className="tb-warn">
+                  ⚠ Sequence steps at or after the sim length ({simEndNs}) won’t run for:{" "}
+                  <span className="mono">{lateSeqInputs.join(", ")}</span>. Increase “Sim length”.
+                </p>
+              )}
             </div>
 
             <div className="tb-preview">

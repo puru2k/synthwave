@@ -81,13 +81,13 @@ export function generateTestbench(spec: TbSpec): string {
   }
   if (clocks.length) L.push("");
 
-  // Initial block: resets, constants, step sequences.
+  // Initial block: VCD dump setup, constant inputs, and reset assert/release.
+  // Stepped inputs get their own concurrent initial block below.
   L.push(`  initial begin`);
   L.push(`    $dumpfile("dump.vcd");`);
   L.push(`    $dumpvars(0, ${spec.top}_tb);`);
 
-  // Constants + reset asserted values applied at t=0. Stepped inputs get their
-  // own concurrent initial block below, so they're not driven from here.
+  // Constants + reset asserted values applied at t=0.
   for (const p of inputs) {
     const s = spec.stim[p.name];
     if (!s) continue;
@@ -95,10 +95,10 @@ export function generateTestbench(spec: TbSpec): string {
     else if (s.kind === "reset") L.push(`    ${p.name} = ${s.activeLow ? "1'b0" : "1'b1"}; // asserted`);
   }
 
-  // Reset release.
+  // Reset release at an absolute time from t=0.
   const resets = inputs.filter((p) => spec.stim[p.name]?.kind === "reset");
+  const maxAssert = resets.length ? Math.max(...resets.map((p) => spec.stim[p.name].assertNs || 20)) : 0;
   if (resets.length) {
-    const maxAssert = Math.max(...resets.map((p) => spec.stim[p.name].assertNs || 20));
     L.push("");
     L.push(`    #(${maxAssert});`);
     for (const p of resets) {
@@ -106,9 +106,16 @@ export function generateTestbench(spec: TbSpec): string {
       L.push(`    ${p.name} = ${s.activeLow ? "1'b1" : "1'b0"}; // released`);
     }
   }
+  L.push(`  end`);
 
+  // Stop the run at an absolute end time, so "Sim length" is the real end of the
+  // simulation (and always lands after any reset release), decoupled from the
+  // stimulus blocks. Kept in its own initial block for the same reason.
+  const endNs = Math.max(spec.simEndNs, maxAssert + 1);
   L.push("");
-  L.push(`    #(${spec.simEndNs});`);
+  L.push(`  // End of simulation`);
+  L.push(`  initial begin`);
+  L.push(`    #(${endNs});`);
   L.push(`    $display("Simulation finished at %0t", $time);`);
   L.push(`    $finish;`);
   L.push(`  end`);
