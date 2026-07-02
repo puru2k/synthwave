@@ -2,6 +2,8 @@
 
 > ⚠️ **Work in progress** — SynthWave is a hobby/test project, still in active development. Features may change, and you may run into bugs or incomplete functionality. Feedback and bug reports are very welcome!
 
+**🌐 Live demo:** [verilog-synthwave.netlify.app](https://verilog-synthwave.netlify.app) (Netlify) · [puru2k.github.io/synthwave](https://puru2k.github.io/synthwave/) (GitHub Pages) — both run the full toolchain in your browser, no install needed.
+
 SynthWave is a hobby/test project: a **one-stop spot to quickly lint, simulate,
 and synthesize** small Verilog/SystemVerilog snippets, without spinning up a full
 EDA toolchain locally. You **write** code and get VCD waveforms, schematics, FSM
