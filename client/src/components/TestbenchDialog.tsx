@@ -10,15 +10,20 @@ interface Props {
   onApply: (fileName: string, content: string, run: boolean) => void;
 }
 
-// "0:0, 20:1, 40:0" <-> step list (time:value pairs).
+// "0:0, 20:1, 40:0" -> step list (time:value pairs). Pairs may be separated by
+// commas, semicolons, or newlines; only the first colon splits time from value
+// so values like "8'hA5" (or even a stray colon) survive. Empty/partial pairs
+// are skipped so typing mid-entry never throws.
 function parseSteps(s: string): Array<{ timeNs: number; value: string }> {
   return s
-    .split(",")
+    .split(/[,\n;]+/)
     .map((p) => p.trim())
     .filter(Boolean)
     .map((p) => {
-      const [t, ...v] = p.split(":");
-      return { timeNs: Number(t) || 0, value: (v.join(":") || "0").trim() };
+      const i = p.indexOf(":");
+      const t = i >= 0 ? p.slice(0, i) : p;
+      const v = i >= 0 ? p.slice(i + 1) : "";
+      return { timeNs: Math.max(0, Number(t.trim()) || 0), value: v.trim() || "0" };
     });
 }
 function stepsToStr(steps?: Array<{ timeNs: number; value: string }>): string {
@@ -37,6 +42,11 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
   const [stim, setStim] = useState<Record<string, PortStim>>(() => (mod ? defaultStim(mod.ports) : {}));
   const [simEndNs, setSimEndNs] = useState(hasClock ? 200 : 100);
   const [timescale, setTimescale] = useState("1ns / 1ps");
+  // Raw, per-input text for the "Sequence" field. Kept separate from the parsed
+  // `steps` so the box shows exactly what the user types (commas, partial pairs,
+  // trailing spaces) instead of a value reserialized on every keystroke — which
+  // is what previously ate the comma and blocked adding more time:value pairs.
+  const [stepText, setStepText] = useState<Record<string, string>>({});
 
   // Rebuild stim when the selected module changes.
   const switchModule = (name: string) => {
@@ -44,12 +54,18 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
     const m = modules.find((x) => x.name === name);
     if (m) {
       setStim(defaultStim(m.ports));
+      setStepText({});
       setSimEndNs(m.ports.some((p) => p.dir === "input" && p.isClock) ? 200 : 100);
     }
   };
 
   const update = (name: string, patch: Partial<PortStim>) =>
     setStim((s) => ({ ...s, [name]: { ...s[name], ...patch } }));
+
+  const updateSteps = (name: string, raw: string) => {
+    setStepText((t) => ({ ...t, [name]: raw }));
+    update(name, { steps: parseSteps(raw) });
+  };
 
   const spec: TbSpec | null = mod
     ? { top: mod.name, ports: mod.ports, stim, simEndNs, timescale, instName: "dut" }
@@ -181,8 +197,8 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
                               <label className="tb-inline tb-steps">
                                 <input
                                   className="mono"
-                                  value={stepsToStr(s.steps)}
-                                  onChange={(e) => update(p.name, { steps: parseSteps(e.target.value) })}
+                                  value={stepText[p.name] ?? stepsToStr(s.steps)}
+                                  onChange={(e) => updateSteps(p.name, e.target.value)}
                                   placeholder="time:value, e.g. 0:0, 20:1, 40:0"
                                 />
                               </label>
