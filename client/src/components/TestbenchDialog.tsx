@@ -11,12 +11,12 @@ interface Props {
 }
 
 // "0:0, 20:1, 40:0" -> step list (time:value pairs). Pairs may be separated by
-// commas, semicolons, or newlines; only the first colon splits time from value
-// so values like "8'hA5" (or even a stray colon) survive. Empty/partial pairs
-// are skipped so typing mid-entry never throws.
+// commas, semicolons, whitespace, or newlines (so "1:0 2:0 3:1" works too);
+// only the first colon splits time from value, so a value like "8'hA5" survives.
+// Empty/partial pairs are skipped so typing mid-entry never throws.
 function parseSteps(s: string): Array<{ timeNs: number; value: string }> {
   return s
-    .split(/[,\n;]+/)
+    .split(/[\s,;]+/)
     .map((p) => p.trim())
     .filter(Boolean)
     .map((p) => {
@@ -211,7 +211,9 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
                 </table>
               )}
               <p className="muted tb-hint">
-                Times are in timescale units. “Sequence” applies values at the given times (relative to t=0).
+                Times are in timescale units. “Sequence” applies each value at the given time (relative to t=0).
+                Enter <span className="mono">time:value</span> pairs separated by spaces or commas, e.g.{" "}
+                <span className="mono">1:0 2:0 3:1</span>.
               </p>
             </div>
 
