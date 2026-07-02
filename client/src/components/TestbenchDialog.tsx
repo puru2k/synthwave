@@ -211,9 +211,11 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
                 </table>
               )}
               <p className="muted tb-hint">
-                Times are in timescale units. “Sequence” applies each value at the given time (relative to t=0).
-                Enter <span className="mono">time:value</span> pairs separated by spaces or commas, e.g.{" "}
-                <span className="mono">1:0 2:0 3:1</span>.
+                Times are in timescale units, absolute from t=0. Enter{" "}
+                <span className="mono">time:value</span> pairs separated by spaces or commas, e.g.{" "}
+                <span className="mono">1:0 2:0 3:1</span>. Each input runs on its own timeline, so giving two
+                inputs the same time changes them together (e.g. <span className="mono">a: 1:1</span> and{" "}
+                <span className="mono">b: 1:1</span> both fire at t=1).
               </p>
             </div>
 

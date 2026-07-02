@@ -86,16 +86,13 @@ export function generateTestbench(spec: TbSpec): string {
   L.push(`    $dumpfile("dump.vcd");`);
   L.push(`    $dumpvars(0, ${spec.top}_tb);`);
 
-  // Constants + reset initial values applied at t=0.
+  // Constants + reset asserted values applied at t=0. Stepped inputs get their
+  // own concurrent initial block below, so they're not driven from here.
   for (const p of inputs) {
     const s = spec.stim[p.name];
     if (!s) continue;
     if (s.kind === "const") L.push(`    ${p.name} = ${s.value ?? "0"};`);
     else if (s.kind === "reset") L.push(`    ${p.name} = ${s.activeLow ? "1'b0" : "1'b1"}; // asserted`);
-    else if (s.kind === "steps") {
-      const first = (s.steps || []).find((st) => st.timeNs === 0);
-      L.push(`    ${p.name} = ${first ? first.value : "0"};`);
-    }
   }
 
   // Reset release.
@@ -110,26 +107,35 @@ export function generateTestbench(spec: TbSpec): string {
     }
   }
 
-  // Stepped sequences (relative delays from t=0, sorted).
-  const stepInputs = inputs.filter((p) => spec.stim[p.name]?.kind === "steps");
-  for (const p of stepInputs) {
-    const steps = (spec.stim[p.name].steps || []).filter((st) => st.timeNs > 0).sort((a, b) => a.timeNs - b.timeNs);
-    if (!steps.length) continue;
-    L.push("");
-    L.push(`    // ${p.name} sequence`);
-    let prev = 0;
-    for (const st of steps) {
-      const dt = Math.max(0, st.timeNs - prev);
-      L.push(`    #(${dt}) ${p.name} = ${st.value};`);
-      prev = st.timeNs;
-    }
-  }
-
   L.push("");
   L.push(`    #(${spec.simEndNs});`);
   L.push(`    $display("Simulation finished at %0t", $time);`);
   L.push(`    $finish;`);
   L.push(`  end`);
+
+  // Stepped sequences. Each input gets its OWN initial block so all sequences
+  // run concurrently on the same t=0 timeline — give two inputs the same time
+  // and they change together (e.g. a "1:1" and b "1:1" both fire at t=1). The
+  // #() delays are relative to the previous point in that input's sequence.
+  const stepInputs = inputs.filter((p) => spec.stim[p.name]?.kind === "steps");
+  for (const p of stepInputs) {
+    const steps = (spec.stim[p.name].steps || []).slice().sort((a, b) => a.timeNs - b.timeNs);
+    if (!steps.length) continue;
+    L.push("");
+    L.push(`  // ${p.name} sequence`);
+    L.push(`  initial begin`);
+    const zero = steps.find((st) => st.timeNs === 0);
+    L.push(`    ${p.name} = ${zero ? zero.value : "0"}; // t=0`);
+    let prev = 0;
+    for (const st of steps) {
+      if (st.timeNs === 0) continue; // already applied as the t=0 value
+      const dt = Math.max(0, st.timeNs - prev);
+      L.push(`    #(${dt}) ${p.name} = ${st.value}; // t=${st.timeNs}`);
+      prev = st.timeNs;
+    }
+    L.push(`  end`);
+  }
+
   L.push(`endmodule`);
   L.push("");
   return L.join("\n");
