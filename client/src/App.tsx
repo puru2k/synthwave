@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import CodeEditor from "./components/CodeEditor";
+import CodeEditor, { SNIPPETS } from "./components/CodeEditor";
 import WaveformViewer from "./components/WaveformViewer";
 import Schematic from "./components/Schematic";
 import SynthReports from "./components/SynthReports";
@@ -148,6 +148,9 @@ export default function App() {
 
   // Workspace (multi-project) state.
   const [projects, setProjects] = useState<WsProject[]>(bootWs.projects);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [snippetMenuOpen, setSnippetMenuOpen] = useState(false);
+  const snippetMenuRef = useRef<HTMLDivElement>(null);
   const [activeProjectId, setActiveProjectId] = useState<string>(initialProject.id);
   const [renamingProject, setRenamingProject] = useState<{ id: string; value: string } | null>(null);
 
@@ -351,6 +354,81 @@ export default function App() {
     applyThemeVars(t);
     setNativeAppearance(t.dark ? "dark" : "light");
   }, [resolvedTheme]);
+
+  // Close snippet dropdown on outside click
+  useEffect(() => {
+    if (!snippetMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (snippetMenuRef.current && !snippetMenuRef.current.contains(e.target as Node)) {
+        setSnippetMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [snippetMenuOpen]);
+
+  const insertSnippet = (body: string) => {
+    setSnippetMenuOpen(false);
+    const api = editorApiRef.current;
+    if (!api || !activeFile) return;
+    const { editor } = api;
+    editor.focus();
+    const contrib = editor.getContribution("snippetController2");
+    if (contrib && typeof contrib.insert === "function") {
+      contrib.insert(body);
+    } else {
+      const selection = editor.getSelection();
+      editor.executeEdits("snippet", [{ range: selection, text: body, forceMoveMarkers: true }]);
+    }
+  };
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const onGlobalKeyDown = (e: KeyboardEvent) => {
+      const isMod = e.ctrlKey || e.metaKey;
+      if (isMod && !e.shiftKey && e.key === "Enter") {
+        e.preventDefault();
+        if (busy === null) runSimulation();
+        return;
+      }
+      if (isMod && e.shiftKey && e.key === "Enter") {
+        e.preventDefault();
+        if (busy === null) runSynthesis();
+        return;
+      }
+      if (isMod && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        formatActiveFile();
+        return;
+      }
+      if (e.altKey && e.shiftKey && (e.key === "F" || e.key === "f")) {
+        e.preventDefault();
+        formatActiveFile();
+        return;
+      }
+      if (isMod && (e.key === "b" || e.key === "B")) {
+        e.preventDefault();
+        setSidebarOpen((o) => !o);
+        return;
+      }
+      if (isMod && (e.key === "l" || e.key === "L")) {
+        e.preventDefault();
+        if (busy === null) runVerify();
+        return;
+      }
+      if ((e.key === "?" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) || (isMod && e.key === "/")) {
+        e.preventDefault();
+        setShortcutsOpen((o) => !o);
+        return;
+      }
+      if (e.key === "Escape" && shortcutsOpen) {
+        setShortcutsOpen(false);
+        return;
+      }
+    };
+    window.addEventListener("keydown", onGlobalKeyDown);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown);
+  }, [busy, activeFile, shortcutsOpen]);
 
   // Keyboard support for the in-app confirm dialog: Enter confirms, Esc cancels.
   useEffect(() => {
@@ -1245,6 +1323,8 @@ export default function App() {
                     <option value="auto">Auto (match system)</option>
                     <option value="day">Day</option>
                     <option value="night">Night</option>
+                    <option value="synthwave">SynthWave (Neon)</option>
+                    <option value="cyber">Cyberpunk</option>
                   </select>
                 </div>
                 <label className="menu-check">
@@ -1358,6 +1438,62 @@ export default function App() {
                 }}
               >
                 {confirmState.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shortcutsOpen && (
+        <div className="confirm-scrim" onClick={() => setShortcutsOpen(false)}>
+          <div className="shortcuts-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="dialog-header">
+              <h3>Keyboard Shortcuts</h3>
+              <button className="ghost-btn" onClick={() => setShortcutsOpen(false)} title="Close">
+                <IconClose />
+              </button>
+            </div>
+            <div className="shortcuts-grid">
+              <div className="shortcut-row">
+                <span className="shortcut-desc">Run Simulation</span>
+                <span className="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+              </div>
+              <div className="shortcut-row">
+                <span className="shortcut-desc">Run Synthesis</span>
+                <span className="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Enter</kbd></span>
+              </div>
+              <div className="shortcut-row">
+                <span className="shortcut-desc">Run Linter / Check</span>
+                <span className="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>L</kbd></span>
+              </div>
+              <div className="shortcut-row">
+                <span className="shortcut-desc">Format Code (Reindent)</span>
+                <span className="shortcut-keys"><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></span>
+              </div>
+              <div className="shortcut-row">
+                <span className="shortcut-desc">Save / Format</span>
+                <span className="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></span>
+              </div>
+              <div className="shortcut-row">
+                <span className="shortcut-desc">Toggle Sidebar</span>
+                <span className="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>B</kbd></span>
+              </div>
+              <div className="shortcut-row">
+                <span className="shortcut-desc">Waveform: Next / Prev Edge</span>
+                <span className="shortcut-keys"><kbd>→</kbd> / <kbd>←</kbd></span>
+              </div>
+              <div className="shortcut-row">
+                <span className="shortcut-desc">Waveform: Zoom In / Out / Fit</span>
+                <span className="shortcut-keys"><kbd>+</kbd> / <kbd>-</kbd> / <kbd>F</kbd></span>
+              </div>
+              <div className="shortcut-row">
+                <span className="shortcut-desc">Show Shortcuts Help</span>
+                <span className="shortcut-keys"><kbd>?</kbd></span>
+              </div>
+            </div>
+            <div className="dialog-actions">
+              <button className="btn primary" onClick={() => setShortcutsOpen(false)}>
+                Got it
               </button>
             </div>
           </div>
@@ -1703,6 +1839,49 @@ export default function App() {
               <IconPlus />
             </button>
             <div className="spacer" />
+            <div className="ftab-actions">
+              <button
+                className="ftab-action-btn"
+                onClick={formatActiveFile}
+                disabled={!activeFile || !isHdl(activeFile.name)}
+                title="Format Verilog (reindent code) — Alt+Shift+F"
+              >
+                Format
+              </button>
+              <div className="snippet-picker-wrap" ref={snippetMenuRef}>
+                <button
+                  className={snippetMenuOpen ? "ftab-action-btn active" : "ftab-action-btn"}
+                  onClick={() => setSnippetMenuOpen((o) => !o)}
+                  disabled={!activeFile || !isHdl(activeFile.name)}
+                  title="Insert Verilog snippet at cursor"
+                >
+                  ⚡ Snippets ▾
+                </button>
+                {snippetMenuOpen && (
+                  <div className="snippet-dropdown">
+                    <div className="snippet-dropdown-title">Insert Snippet</div>
+                    {SNIPPETS.map((s, idx) => (
+                      <button
+                        key={idx}
+                        className="snippet-item"
+                        onClick={() => insertSnippet(s.body)}
+                        title={s.detail}
+                      >
+                        <span className="snippet-name">{s.label}</span>
+                        <span className="snippet-desc">{s.detail}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                className="ftab-action-btn"
+                onClick={() => setShortcutsOpen(true)}
+                title="Keyboard shortcuts (?)"
+              >
+                ⌨ Keys
+              </button>
+            </div>
             <button
               className="max-btn"
               title={maximized === "editor" ? "Restore split view" : "Maximize editor"}
@@ -1855,7 +2034,7 @@ export default function App() {
                     )}
                   </div>
                   <div className="schem-body">
-                    <Schematic svg={svg} srcMap={srcMap} onJump={jumpTo} />
+                    <Schematic svg={svg} srcMap={srcMap} onJump={jumpTo} topModule={top} />
                   </div>
                 </div>
               ) : (

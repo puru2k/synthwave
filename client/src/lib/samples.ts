@@ -32,6 +32,7 @@ export const CATEGORY_ORDER: string[] = [
   "Counters",
   "Finite State Machines",
   "Memory & FIFO",
+  "Communication & Protocols",
   "CDC & Timing",
   "Arbiters & Control",
   "Processor",

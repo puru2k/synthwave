@@ -1177,6 +1177,21 @@ body.dragging-col * { user-select: none !important; }
   font-size: var(--fs-xs);
   padding: 2px 5px;
 }
+.wave-quick-filter {
+  width: 95px;
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  padding: 2px 6px;
+  transition: width 0.15s ease, border-color 0.15s ease;
+}
+.wave-quick-filter:focus {
+  width: 135px;
+  border-color: var(--accent);
+  outline: none;
+}
 .wave-empty {
   flex: 1;
   display: flex;
@@ -1707,4 +1722,154 @@ body {
 .is-linux .menu,
 .is-linux .menu-pop {
   border-radius: 12px;
+}
+
+/* Editor Tab Bar Actions */
+.ftab-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+}
+.ftab-action-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  padding: 2px 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+.ftab-action-btn:hover:not(:disabled),
+.ftab-action-btn.active {
+  color: var(--text);
+  background: var(--bg-3);
+  border-color: var(--border);
+}
+.ftab-action-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Snippets Dropdown */
+.snippet-picker-wrap {
+  position: relative;
+}
+.snippet-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  width: 270px;
+  max-height: 340px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.snippet-dropdown-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  padding: 4px 8px;
+  font-weight: 600;
+}
+.snippet-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  gap: 2px;
+}
+.snippet-item:hover {
+  background: var(--bg-2);
+}
+.snippet-name {
+  font-family: "JetBrains Mono", Menlo, monospace;
+  font-size: var(--fs-xs);
+  color: var(--accent);
+  font-weight: 600;
+}
+.snippet-desc {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Keyboard Shortcuts Dialog */
+.shortcuts-dialog {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  width: 450px;
+  max-width: 90vw;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.shortcuts-dialog .dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.shortcuts-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+.shortcuts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+.shortcut-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  background: var(--bg-2);
+}
+.shortcut-desc {
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.shortcut-keys kbd {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: "JetBrains Mono", Menlo, monospace;
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.shortcuts-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
 }

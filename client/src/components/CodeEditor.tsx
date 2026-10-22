@@ -3,6 +3,7 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import type { VIndex } from "../lib/verilogIndex";
 import { moduleSignature, instantiationSnippet } from "../lib/verilogIndex";
 import { THEMES, getTheme } from "../lib/themes";
+import { formatVerilog } from "../lib/format";
 
 const monacoName = (id: string) => "sw-" + id;
 
@@ -110,49 +111,110 @@ function registerVerilog(monaco: any) {
     ],
   });
 
+  // Native document formatting provider (Alt+Shift+F / Format Document)
+  monaco.languages.registerDocumentFormattingEditProvider("verilog", {
+    provideDocumentFormattingEdits(model: any) {
+      const formatted = formatVerilog(model.getValue());
+      return [
+        {
+          range: model.getFullModelRange(),
+          text: formatted,
+        },
+      ];
+    },
+  });
+
   registerProviders(monaco);
 }
 
-const SNIPPETS: Array<{ label: string; detail: string; body: string }> = [
+export interface SnippetDef {
+  label: string;
+  detail: string;
+  body: string;
+  category?: string;
+}
+
+export const SNIPPETS: SnippetDef[] = [
   {
     label: "always_ff",
-    detail: "Clocked always block (posedge clk)",
-    body: "always_ff @(posedge ${1:clk}) begin\n\tif (${2:rst}) ${3:q} <= '0;\n\telse ${3:q} <= ${4:d};\nend",
+    detail: "Clocked always block (sync reset)",
+    category: "Sequential",
+    body: "always_ff @(posedge ${1:clk}) begin\n\tif (${2:rst}) begin\n\t\t${3:q} <= '0;\n\tend else begin\n\t\t${3:q} <= ${4:d};\n\tend\nend",
+  },
+  {
+    label: "always_ff_async",
+    detail: "Clocked always block (async reset)",
+    category: "Sequential",
+    body: "always_ff @(posedge ${1:clk} or posedge ${2:rst}) begin\n\tif (${2:rst}) begin\n\t\t${3:q} <= '0;\n\tend else begin\n\t\t${3:q} <= ${4:d};\n\tend\nend",
   },
   {
     label: "always_comb",
     detail: "Combinational always block",
+    category: "Combinational",
     body: "always_comb begin\n\t${1:y} = ${2:expr};\nend",
   },
   {
     label: "always",
-    detail: "Generic clocked always block",
+    detail: "Generic clocked always block (Verilog-2001)",
+    category: "Sequential",
     body: "always @(posedge ${1:clk} or posedge ${2:rst}) begin\n\tif (${2:rst})\n\t\t${3:q} <= 0;\n\telse\n\t\t${3:q} <= ${4:d};\nend",
   },
   {
+    label: "case",
+    detail: "Case statement with default",
+    category: "Combinational",
+    body: "case (${1:sel})\n\t${2:2'b00}: ${3:out} = ${4:a};\n\t${5:2'b01}: ${3:out} = ${6:b};\n\tdefault: ${3:out} = '0;\nendcase",
+  },
+  {
     label: "module",
-    detail: "Module skeleton",
-    body: "module ${1:name} (\n\tinput  logic ${2:clk},\n\tinput  logic ${3:rst},\n\toutput logic ${4:y}\n);\n\t$0\nendmodule",
+    detail: "Module skeleton with ports",
+    category: "Structural",
+    body: "module ${1:name} #(\n\tparameter DATA_WIDTH = 8\n) (\n\tinput  wire                  ${2:clk},\n\tinput  wire                  ${3:rst},\n\tinput  wire [DATA_WIDTH-1:0] ${4:d_in},\n\toutput reg  [DATA_WIDTH-1:0] ${5:d_out}\n);\n\n\t$0\n\nendmodule",
   },
   {
     label: "fsm",
-    detail: "FSM template (one-hot / enum states)",
+    detail: "FSM template (enum states, 2-always style)",
+    category: "State Machine",
     body:
-      "typedef enum logic [${1:1}:0] { ${2:S0}, ${3:S1} } state_t;\nstate_t state, next;\n\n" +
-      "always_ff @(posedge ${4:clk}) begin\n\tif (${5:rst}) state <= ${2:S0};\n\telse state <= next;\nend\n\n" +
-      "always_comb begin\n\tnext = state;\n\tcase (state)\n\t\t${2:S0}: next = ${3:S1};\n\t\t${3:S1}: next = ${2:S0};\n\t\tdefault: next = ${2:S0};\n\tendcase\nend",
+      "typedef enum logic [1:0] { ${1:IDLE}, ${2:RUN}, ${3:DONE} } state_t;\nstate_t state, next_state;\n\n" +
+      "// State register\nalways_ff @(posedge ${4:clk}) begin\n\tif (${5:rst}) state <= ${1:IDLE};\n\telse state <= next_state;\nend\n\n" +
+      "// Next-state & output logic\nalways_comb begin\n\tnext_state = state;\n\tcase (state)\n\t\t${1:IDLE}: if (${6:start}) next_state = ${2:RUN};\n\t\t${2:RUN}:  if (${7:ready}) next_state = ${3:DONE};\n\t\t${3:DONE}: next_state = ${1:IDLE};\n\t\tdefault:   next_state = ${1:IDLE};\n\tendcase\nend",
   },
   {
     label: "tb",
     detail: "Self-checking testbench skeleton",
+    category: "Verification",
     body:
-      "module ${1:dut}_tb;\n\tlogic clk = 0, rst = 1;\n\talways #5 clk = ~clk;\n\n\t${1:dut} dut (.*);\n\n" +
-      "\tinitial begin\n\t\t$dumpfile(\"dump.vcd\");\n\t\t$dumpvars(0, ${1:dut}_tb);\n\t\t#20 rst = 0;\n\t\t$0\n\t\t#100 $finish;\n\tend\nendmodule",
+      "`timescale 1ns/1ps\nmodule ${1:dut}_tb;\n\treg clk = 0;\n\treg rst = 1;\n\talways #5 clk = ~clk; // 100 MHz\n\n\t// DUT Instantiation\n\t${1:dut} dut (\n\t\t.clk(clk),\n\t\t.rst(rst)\n\t);\n\n\tinitial begin\n\t\t$dumpfile(\"dump.vcd\");\n\t\t$dumpvars(0, ${1:dut}_tb);\n\t\t#20 rst = 0;\n\t\t$0\n\t\t#100 $finish;\n\tend\nendmodule",
   },
-  { label: "initial", detail: "Initial block", body: "initial begin\n\t$0\nend" },
-  { label: "$display", detail: "Display statement", body: '$display("${1:msg} = %0d", ${2:val});' },
-  { label: "$dumpvars", detail: "VCD dump setup", body: '$dumpfile("dump.vcd");\n$dumpvars(0, ${1:tb});' },
-];
+  {
+    label: "clk_gen",
+    detail: "Clock generator initial/always block",
+    category: "Verification",
+    body: "reg ${1:clk} = 0;\nalways #${2:5} ${1:clk} = ~${1:clk};",
+  },
+  {
+    label: "dff",
+    detail: "D Flip-Flop with asynchronous reset",
+    category: "Sequential",
+    body: "always_ff @(posedge ${1:clk} or posedge ${2:rst}) begin\n\tif (${2:rst}) ${3:q} <= '0;\n\telse if (${4:en}) ${3:q} <= ${5:d};\nend",
+  },
+  {
+    label: "counter",
+    detail: "Parameterized up-counter with enable",
+    category: "Sequential",
+    body: "reg [${1:7}:0] ${2:count};\nalways_ff @(posedge ${3:clk}) begin\n\tif (${4:rst}) ${2:count} <= '0;\n\telse if (${5:en}) ${2:count} <= ${2:count} + 1'b1;\nend",
+  },
+  {
+    label: "mux",
+    detail: "Parameterized 2-to-1 MUX",
+    category: "Combinational",
+    body: "assign ${1:y} = (${2:sel}) ? ${3:b} : ${4:a};",
+  },
+  { label: "initial", detail: "Initial block", category: "Verification", body: "initial begin\n\t$0\nend" },
+  { label: "$display", detail: "Display statement", category: "Verification", body: '$display("${1:msg}: %0d", ${2:val});' },
+  { label: "$dumpvars", detail: "VCD dump setup", category: "Verification", body: '$dumpfile("dump.vcd");\n$dumpvars(0, ${1:tb});' },
+]
 
 function registerProviders(monaco: any) {
   monaco.languages.registerCompletionItemProvider("verilog", {

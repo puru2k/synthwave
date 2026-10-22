@@ -3554,4 +3554,535 @@ endmodule
 endmodule
 `,
   },
+
+  // ===================== Communication & Protocols =====================
+  {
+    name: "UART (TX & RX Loopback)",
+    category: "Communication & Protocols",
+    top: "uart_loopback",
+    design: `// UART Transmitter and Receiver with Baud Rate Generator and Loopback
+module uart_loopback #(
+    parameter CLK_FREQ  = 10000000, // 10 MHz system clock
+    parameter BAUD_RATE = 1000000   // 1 MBaud for simulation (10 clocks/bit)
+) (
+    input  wire       clk,
+    input  wire       rst,
+    input  wire       tx_start,
+    input  wire [7:0] tx_data,
+    output wire       tx_busy,
+    output wire [7:0] rx_data,
+    output wire       rx_valid,
+    output wire       tx_serial_pin
+);
+    localparam CLKS_PER_BIT = CLK_FREQ / BAUD_RATE;
+
+    // --- UART Transmitter ---
+    reg [3:0]  tx_state = 0;
+    reg [7:0]  tx_shift = 0;
+    reg [15:0] tx_clk_cnt = 0;
+    reg        tx_out = 1'b1;
+    reg        tx_active = 0;
+
+    assign tx_busy = tx_active;
+    assign tx_serial_pin = tx_out;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            tx_state   <= 0;
+            tx_out     <= 1'b1;
+            tx_active  <= 0;
+            tx_clk_cnt <= 0;
+            tx_shift   <= 0;
+        end else begin
+            case (tx_state)
+                0: begin // IDLE
+                    tx_out     <= 1'b1;
+                    tx_clk_cnt <= 0;
+                    if (tx_start) begin
+                        tx_shift  <= tx_data;
+                        tx_active <= 1'b1;
+                        tx_out    <= 1'b0; // Start bit
+                        tx_state  <= 1;
+                    end else begin
+                        tx_active <= 0;
+                    end
+                end
+                1: begin // START BIT
+                    if (tx_clk_cnt < CLKS_PER_BIT - 1) begin
+                        tx_clk_cnt <= tx_clk_cnt + 1;
+                    end else begin
+                        tx_clk_cnt <= 0;
+                        tx_out     <= tx_shift[0];
+                        tx_state   <= 2;
+                    end
+                end
+                2, 3, 4, 5, 6, 7, 8, 9: begin // 8 DATA BITS
+                    if (tx_clk_cnt < CLKS_PER_BIT - 1) begin
+                        tx_clk_cnt <= tx_clk_cnt + 1;
+                    end else begin
+                        tx_clk_cnt <= 0;
+                        tx_shift   <= tx_shift >> 1;
+                        if (tx_state == 9) begin
+                            tx_out   <= 1'b1; // Stop bit
+                            tx_state <= 10;
+                        end else begin
+                            tx_out   <= tx_shift[1];
+                            tx_state <= tx_state + 1;
+                        end
+                    end
+                end
+                10: begin // STOP BIT
+                    if (tx_clk_cnt < CLKS_PER_BIT - 1) begin
+                        tx_clk_cnt <= tx_clk_cnt + 1;
+                    end else begin
+                        tx_clk_cnt <= 0;
+                        tx_active  <= 0;
+                        tx_state   <= 0;
+                    end
+                end
+                default: tx_state <= 0;
+            endcase
+        end
+    end
+
+    // --- UART Receiver (Samples tx_serial_pin mid-bit) ---
+    reg [3:0]  rx_state = 0;
+    reg [15:0] rx_clk_cnt = 0;
+    reg [7:0]  rx_buf = 0;
+    reg [7:0]  rx_data_reg = 0;
+    reg        rx_valid_reg = 0;
+
+    assign rx_data  = rx_data_reg;
+    assign rx_valid = rx_valid_reg;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            rx_state     <= 0;
+            rx_clk_cnt   <= 0;
+            rx_valid_reg <= 0;
+            rx_buf       <= 0;
+            rx_data_reg  <= 0;
+        end else begin
+            rx_valid_reg <= 0;
+            case (rx_state)
+                0: begin // IDLE: wait for falling edge
+                    rx_clk_cnt <= 0;
+                    if (!tx_serial_pin) rx_state <= 1;
+                end
+                1: begin // Verify start bit at center
+                    if (rx_clk_cnt < (CLKS_PER_BIT / 2) - 1) begin
+                        rx_clk_cnt <= rx_clk_cnt + 1;
+                    end else begin
+                        rx_clk_cnt <= 0;
+                        if (!tx_serial_pin) rx_state <= 2;
+                        else rx_state <= 0;
+                    end
+                end
+                2, 3, 4, 5, 6, 7, 8, 9: begin // DATA BITS
+                    if (rx_clk_cnt < CLKS_PER_BIT - 1) begin
+                        rx_clk_cnt <= rx_clk_cnt + 1;
+                    end else begin
+                        rx_clk_cnt <= 0;
+                        rx_buf     <= {tx_serial_pin, rx_buf[7:1]};
+                        rx_state   <= rx_state + 1;
+                    end
+                end
+                10: begin // STOP BIT
+                    if (rx_clk_cnt < CLKS_PER_BIT - 1) begin
+                        rx_clk_cnt <= rx_clk_cnt + 1;
+                    end else begin
+                        rx_clk_cnt   <= 0;
+                        rx_data_reg  <= rx_buf;
+                        rx_valid_reg <= tx_serial_pin;
+                        rx_state     <= 0;
+                    end
+                end
+                default: rx_state <= 0;
+            endcase
+        end
+    end
+endmodule
+`,
+    testbench: TS + `module tb;
+    reg clk = 0; reg rst = 1; reg tx_start = 0; reg [7:0] tx_data = 8'h00;
+    wire tx_busy, rx_valid, tx_serial_pin; wire [7:0] rx_data;
+
+    uart_loopback #(.CLK_FREQ(10000000), .BAUD_RATE(1000000)) dut (
+        .clk(clk), .rst(rst), .tx_start(tx_start), .tx_data(tx_data),
+        .tx_busy(tx_busy), .rx_data(rx_data), .rx_valid(rx_valid), .tx_serial_pin(tx_serial_pin)
+    );
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $dumpfile("dump.vcd"); $dumpvars(0, tb);
+        #20 rst = 0; #20;
+
+        // Send 0xA5
+        tx_data = 8'hA5; tx_start = 1; #10 tx_start = 0;
+        @(posedge rx_valid);
+        $display("UART Loopback received: 0x%02X (expected 0xA5)", rx_data);
+
+        #50;
+        // Send 0x3C
+        tx_data = 8'h3C; tx_start = 1; #10 tx_start = 0;
+        @(posedge rx_valid);
+        $display("UART Loopback received: 0x%02X (expected 0x3C)", rx_data);
+
+        #100 $finish;
+    end
+endmodule
+`,
+  },
+  {
+    name: "SPI Master Controller",
+    category: "Communication & Protocols",
+    top: "spi_master",
+    design: `// SPI Master (Mode 0: CPOL=0, CPHA=0) with 8-bit full-duplex transfers
+module spi_master #(
+    parameter CLK_DIV = 4
+) (
+    input  wire       clk,
+    input  wire       rst,
+    input  wire       start,
+    input  wire [7:0] tx_data,
+    output reg  [7:0] rx_data,
+    output reg        busy,
+    output reg        done,
+    output reg        sclk,
+    output reg        mosi,
+    input  wire       miso,
+    output reg        cs_n
+);
+    reg [2:0] state;
+    reg [7:0] shift_tx, shift_rx;
+    reg [3:0] bit_cnt;
+    reg [7:0] div_cnt;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            state    <= 0;
+            busy     <= 0;
+            done     <= 0;
+            sclk     <= 0;
+            mosi     <= 0;
+            cs_n     <= 1;
+            bit_cnt  <= 0;
+            div_cnt  <= 0;
+            rx_data  <= 0;
+            shift_tx <= 0;
+            shift_rx <= 0;
+        end else begin
+            done <= 0;
+            case (state)
+                0: begin // IDLE
+                    sclk <= 0;
+                    cs_n <= 1;
+                    busy <= 0;
+                    if (start) begin
+                        shift_tx <= tx_data;
+                        shift_rx <= 0;
+                        bit_cnt  <= 0;
+                        div_cnt  <= 0;
+                        cs_n     <= 0;
+                        busy     <= 1;
+                        mosi     <= tx_data[7];
+                        state    <= 1;
+                    end
+                end
+                1: begin // Setup before rising edge
+                    if (div_cnt < CLK_DIV - 1) div_cnt <= div_cnt + 1;
+                    else begin
+                        div_cnt  <= 0;
+                        sclk     <= 1;
+                        shift_rx <= {shift_rx[6:0], miso}; // Sample MISO on rising edge
+                        state    <= 2;
+                    end
+                end
+                2: begin // Falling edge & shift next MOSI
+                    if (div_cnt < CLK_DIV - 1) div_cnt <= div_cnt + 1;
+                    else begin
+                        div_cnt  <= 0;
+                        sclk     <= 0;
+                        bit_cnt  <= bit_cnt + 1;
+                        shift_tx <= {shift_tx[6:0], 1'b0};
+                        if (bit_cnt == 7) begin
+                            state <= 3;
+                        end else begin
+                            mosi  <= shift_tx[6];
+                            state <= 1;
+                        end
+                    end
+                end
+                3: begin // Transfer complete
+                    cs_n    <= 1;
+                    busy    <= 0;
+                    done    <= 1;
+                    rx_data <= shift_rx;
+                    state   <= 0;
+                end
+                default: state <= 0;
+            endcase
+        end
+    end
+endmodule
+`,
+    testbench: TS + `module tb;
+    reg clk = 0; reg rst = 1; reg start = 0; reg [7:0] tx_data = 8'h00;
+    wire [7:0] rx_data; wire busy, done, sclk, mosi, cs_n; reg miso = 0;
+
+    spi_master #(.CLK_DIV(2)) dut (
+        .clk(clk), .rst(rst), .start(start), .tx_data(tx_data),
+        .rx_data(rx_data), .busy(busy), .done(done),
+        .sclk(sclk), .mosi(mosi), .miso(miso), .cs_n(cs_n)
+    );
+
+    always #5 clk = ~clk;
+
+    // Loopback slave simulation: returns inverted MOSI
+    always @(posedge clk) begin
+        if (!cs_n) miso <= ~mosi;
+        else miso <= 0;
+    end
+
+    initial begin
+        $dumpfile("dump.vcd"); $dumpvars(0, tb);
+        #15 rst = 0; #20;
+
+        tx_data = 8'hA5; start = 1; #10 start = 0;
+        @(posedge done);
+        $display("SPI Transfer Done. Tx: 0x%02X, Rx: 0x%02X", tx_data, rx_data);
+
+        #30;
+        tx_data = 8'h5A; start = 1; #10 start = 0;
+        @(posedge done);
+        $display("SPI Transfer Done. Tx: 0x%02X, Rx: 0x%02X", tx_data, rx_data);
+
+        #50 $finish;
+    end
+endmodule
+`,
+  },
+  {
+    name: "RISC-V RV32I Core Execution Unit",
+    category: "Processor",
+    top: "riscv_core_block",
+    design: `// RV32I Single-Cycle Instruction Decoder & ALU Block
+module riscv_core_block (
+    input  wire [31:0] instr,
+    input  wire [31:0] rs1_data,
+    input  wire [31:0] rs2_data,
+    input  wire [31:0] pc,
+    output reg  [31:0] alu_result,
+    output wire        zero,
+    output reg         branch_taken,
+    output reg  [4:0]  rd_addr,
+    output reg         reg_write,
+    output reg  [31:0] imm_val
+);
+    wire [6:0] opcode = instr[6:0];
+    wire [2:0] funct3 = instr[14:12];
+    wire [6:0] funct7 = instr[31:25];
+    wire [4:0] rd     = instr[11:7];
+
+    // Immediate decoding
+    always @(*) begin
+        case (opcode)
+            7'b0010011, 7'b0000011: imm_val = {{20{instr[31]}}, instr[31:20]}; // I-type
+            7'b0100011:             imm_val = {{20{instr[31]}}, instr[31:25], instr[11:7]}; // S-type
+            7'b1100011:             imm_val = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0}; // B-type
+            7'b0110111, 7'b0010111: imm_val = {instr[31:12], 12'b0}; // U-type
+            7'b1101111:             imm_val = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0}; // J-type
+            default:                imm_val = 32'b0;
+        endcase
+    end
+
+    wire [31:0] op1 = (opcode == 7'b1101111) ? pc : rs1_data;
+    wire [31:0] op2 = (opcode == 7'b0110011) ? rs2_data :
+                      (opcode == 7'b0110111) ? imm_val :
+                      (opcode == 7'b1101111) ? 32'd4 : imm_val;
+
+    // ALU
+    always @(*) begin
+        case (opcode)
+            7'b0110111: alu_result = imm_val; // LUI
+            7'b1101111: alu_result = pc + 4;  // JAL link address
+            default: begin
+                case (funct3)
+                    3'b000: begin
+                        if (opcode == 7'b0110011 && funct7[5]) alu_result = op1 - op2; // SUB
+                        else alu_result = op1 + op2; // ADD / ADDI
+                    end
+                    3'b001: alu_result = op1 << op2[4:0]; // SLL
+                    3'b010: alu_result = ($signed(op1) < $signed(op2)) ? 32'd1 : 32'd0; // SLT
+                    3'b011: alu_result = (op1 < op2) ? 32'd1 : 32'd0; // SLTU
+                    3'b100: alu_result = op1 ^ op2; // XOR
+                    3'b101: begin
+                        if (funct7[5]) alu_result = $signed(op1) >>> op2[4:0]; // SRA
+                        else alu_result = op1 >> op2[4:0]; // SRL
+                    end
+                    3'b110: alu_result = op1 | op2; // OR
+                    3'b111: alu_result = op1 & op2; // AND
+                    default: alu_result = 32'b0;
+                endcase
+            end
+        endcase
+    end
+
+    assign zero = (alu_result == 32'b0);
+
+    // Branch condition
+    always @(*) begin
+        branch_taken = 1'b0;
+        if (opcode == 7'b1100011) begin // Branch
+            case (funct3)
+                3'b000: branch_taken = (rs1_data == rs2_data); // BEQ
+                3'b001: branch_taken = (rs1_data != rs2_data); // BNE
+                3'b100: branch_taken = ($signed(rs1_data) < $signed(rs2_data)); // BLT
+                3'b101: branch_taken = ($signed(rs1_data) >= $signed(rs2_data)); // BGE
+                3'b110: branch_taken = (rs1_data < rs2_data); // BLTU
+                3'b111: branch_taken = (rs1_data >= rs2_data); // BGEU
+                default: branch_taken = 1'b0;
+            endcase
+        end else if (opcode == 7'b1101111) begin
+            branch_taken = 1'b1;
+        end
+    end
+
+    always @(*) begin
+        rd_addr   = rd;
+        reg_write = (opcode == 7'b0110011 || opcode == 7'b0010011 || opcode == 7'b0000011 || opcode == 7'b0110111 || opcode == 7'b1101111);
+    end
+endmodule
+`,
+    testbench: TS + `module tb;
+    reg [31:0] instr, rs1_data, rs2_data, pc;
+    wire [31:0] alu_result, imm_val; wire zero, branch_taken, reg_write; wire [4:0] rd_addr;
+
+    riscv_core_block dut (
+        .instr(instr), .rs1_data(rs1_data), .rs2_data(rs2_data), .pc(pc),
+        .alu_result(alu_result), .zero(zero), .branch_taken(branch_taken),
+        .rd_addr(rd_addr), .reg_write(reg_write), .imm_val(imm_val)
+    );
+
+    initial begin
+        $dumpfile("dump.vcd"); $dumpvars(0, tb);
+        pc = 32'h1000; rs1_data = 32'd25; rs2_data = 32'd10;
+
+        // ADDI x3, x1, 15 (0x00F08193)
+        instr = 32'h00F08193; #10;
+        $display("ADDI result=%0d rd=%0d reg_write=%0b", alu_result, rd_addr, reg_write);
+
+        // ADD x4, x1, x2 (0x00208233)
+        instr = 32'h00208233; #10;
+        $display("ADD  result=%0d rd=%0d", alu_result, rd_addr);
+
+        // SUB x5, x1, x2 (0x402082B3)
+        instr = 32'h402082B3; #10;
+        $display("SUB  result=%0d rd=%0d", alu_result, rd_addr);
+
+        // BEQ x1, x2, +8 (Branch not taken)
+        instr = 32'h00208463; #10;
+        $display("BEQ (not taken): branch_taken=%0b", branch_taken);
+
+        // BEQ with equal inputs
+        rs2_data = 32'd25; #10;
+        $display("BEQ (equal): branch_taken=%0b", branch_taken);
+
+        // LUI x6, 0xABCDE (0xABCDE337)
+        instr = 32'hABCDE337; #10;
+        $display("LUI result=0x%08X", alu_result);
+
+        #20 $finish;
+    end
+endmodule
+`,
+  },
+  {
+    name: "Parameterized ALU with Status Flags",
+    category: "Arithmetic",
+    top: "alu_advanced",
+    design: `// Parameterized ALU (W-bit) with Carry, Overflow, Zero, and Negative Flags
+module alu_advanced #(
+    parameter W = 16
+) (
+    input  wire [W-1:0] a,
+    input  wire [W-1:0] b,
+    input  wire [3:0]   alu_op,
+    output reg  [W-1:0] result,
+    output reg          carry,
+    output reg          overflow,
+    output wire         zero,
+    output wire         negative
+);
+    localparam OP_ADD = 4'd0;
+    localparam OP_SUB = 4'd1;
+    localparam OP_AND = 4'd2;
+    localparam OP_OR  = 4'd3;
+    localparam OP_XOR = 4'd4;
+    localparam OP_NOR = 4'd5;
+    localparam OP_SLL = 4'd6;
+    localparam OP_SRL = 4'd7;
+    localparam OP_SRA = 4'd8;
+    localparam OP_SLT = 4'd9;
+
+    reg [W:0] sum_ext;
+
+    always @(*) begin
+        carry    = 1'b0;
+        overflow = 1'b0;
+        sum_ext  = {(W+1){1'b0}};
+        case (alu_op)
+            OP_ADD: begin
+                sum_ext  = {1'b0, a} + {1'b0, b};
+                result   = sum_ext[W-1:0];
+                carry    = sum_ext[W];
+                overflow = (a[W-1] == b[W-1]) && (result[W-1] != a[W-1]);
+            end
+            OP_SUB: begin
+                sum_ext  = {1'b0, a} - {1'b0, b};
+                result   = sum_ext[W-1:0];
+                carry    = !sum_ext[W]; // Borrow flag
+                overflow = (a[W-1] != b[W-1]) && (result[W-1] != a[W-1]);
+            end
+            OP_AND: result = a & b;
+            OP_OR:  result = a | b;
+            OP_XOR: result = a ^ b;
+            OP_NOR: result = ~(a | b);
+            OP_SLL: result = a << b[3:0];
+            OP_SRL: result = a >> b[3:0];
+            OP_SRA: result = $signed(a) >>> b[3:0];
+            OP_SLT: result = ($signed(a) < $signed(b)) ? {{(W-1){1'b0}}, 1'b1} : {W{1'b0}};
+            default: result = {W{1'b0}};
+        endcase
+    end
+
+    assign zero     = (result == {W{1'b0}});
+    assign negative = result[W-1];
+endmodule
+`,
+    testbench: TS + `module tb;
+    reg [15:0] a, b; reg [3:0] alu_op; wire [15:0] result; wire carry, overflow, zero, negative;
+    integer i;
+
+    alu_advanced #(.W(16)) dut (
+        .a(a), .b(b), .alu_op(alu_op), .result(result),
+        .carry(carry), .overflow(overflow), .zero(zero), .negative(negative)
+    );
+
+    initial begin
+        $dumpfile("dump.vcd"); $dumpvars(0, tb);
+        a = 16'd100; b = 16'd45;
+        for (i = 0; i < 10; i = i + 1) begin
+            alu_op = i[3:0]; #10;
+        end
+        // Test overflow: 32767 + 1
+        a = 16'sh7FFF; b = 16'sh0001; alu_op = 4'd0; #10;
+        // Test zero
+        a = 16'd50; b = 16'd50; alu_op = 4'd1; #10;
+        #20 $finish;
+    end
+endmodule
+`,
+  },
 ];

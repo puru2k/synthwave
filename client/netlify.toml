@@ -1,8 +1,11 @@
 # Static (backend-free) deploy of the SynthWave client.
-# In Netlify, set the site's "Base directory" to verilog-studio/client.
 [build]
-  command = "npm install && npm run build"
+  command = "npm ci && npm run build"
   publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+  NPM_FLAGS = "--legacy-peer-deps"
 
 # Single-page app: serve index.html for any unknown path.
 [[redirects]]

@@ -1,16 +1,40 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CellSrc } from "../lib/api";
+import { downloadText, downloadBlob } from "../lib/download";
+import { svgToPngBlob } from "../lib/png";
 
 interface Props {
   svg: string;
   srcMap?: Record<string, CellSrc> | null;
   onJump?: (file: string, line: number) => void;
+  topModule?: string;
 }
 
 const ZOOM_MIN = 0.02;
 const ZOOM_MAX = 4;
 
-export default function Schematic({ svg, srcMap, onJump }: Props) {
+export default function Schematic({ svg, srcMap, onJump, topModule }: Props) {
+  const [exportingPng, setExportingPng] = useState(false);
+
+  const exportSvg = () => {
+    if (!svg) return;
+    const name = `${topModule || "schematic"}.svg`;
+    downloadText(name, svg);
+  };
+
+  const exportPng = async () => {
+    if (!svg || exportingPng) return;
+    setExportingPng(true);
+    try {
+      const blob = await svgToPngBlob(svg, 2, "#f7f9fc");
+      const name = `${topModule || "schematic"}.png`;
+      downloadBlob(name, blob);
+    } catch (e) {
+      console.error("Export PNG failed:", e);
+    } finally {
+      setExportingPng(false);
+    }
+  };
   const [zoom, setZoom] = useState(1);
   const hostRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -183,6 +207,11 @@ export default function Schematic({ svg, srcMap, onJump }: Props) {
         <button onClick={() => zoomBy(1.25)} title="Zoom in">+</button>
         <button onClick={fitToView} title="Fit the whole schematic to the view">Fit</button>
         <button onClick={() => setZoom(1)} title="Reset to 100%">100%</button>
+        <div className="wave-divider" />
+        <button onClick={exportSvg} title="Download schematic as SVG vector image">Export SVG</button>
+        <button onClick={exportPng} disabled={exportingPng} title="Download high-resolution PNG image">
+          {exportingPng ? "Exporting…" : "Export PNG"}
+        </button>
       </div>
       <div
         className="schem-scroll"

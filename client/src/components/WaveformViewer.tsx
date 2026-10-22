@@ -58,6 +58,25 @@ function bitChanges(sig: VcdSignal, bit: number): Array<{ time: number; value: s
   });
 }
 
+function formatFrequency(delta: number, unit: string): string | null {
+  if (delta <= 0) return null;
+  let seconds = 0;
+  const u = unit.trim().toLowerCase();
+  if (u === "ps") seconds = delta * 1e-12;
+  else if (u === "ns") seconds = delta * 1e-9;
+  else if (u === "us" || u === "µs") seconds = delta * 1e-6;
+  else if (u === "ms") seconds = delta * 1e-3;
+  else if (u === "s") seconds = delta;
+  else seconds = delta * 1e-9;
+
+  const freq = 1 / seconds;
+  if (!isFinite(freq) || freq <= 0) return null;
+  if (freq >= 1e9) return `${(freq / 1e9).toFixed(2)} GHz`;
+  if (freq >= 1e6) return `${(freq / 1e6).toFixed(2)} MHz`;
+  if (freq >= 1e3) return `${(freq / 1e3).toFixed(2)} kHz`;
+  return `${freq.toFixed(2)} Hz`;
+}
+
 export default function WaveformViewer({ data, runs = [], onLoadRun, seek }: Props) {
   const [pxPerUnit, setPxPerUnit] = useState(() => fitZoom(data.endTime));
   const [cursor, setCursor] = useState<number | null>(null);
@@ -69,6 +88,7 @@ export default function WaveformViewer({ data, runs = [], onLoadRun, seek }: Pro
   const [shown, setShown] = useState<string[]>(() => data.signals.map(keyOf));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickFilter, setPickFilter] = useState("");
+  const [quickFilter, setQuickFilter] = useState("");
   const [searchKey, setSearchKey] = useState<string>("");
   const [searchVal, setSearchVal] = useState<string>("");
   const [edgeType, setEdgeType] = useState<"any" | "rise" | "fall">("any");
@@ -118,7 +138,12 @@ export default function WaveformViewer({ data, runs = [], onLoadRun, seek }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seek]);
 
-  const visible = shown.map((k) => sigByKey.get(k)).filter((s): s is VcdSignal => !!s);
+  const visible = useMemo(() => {
+    const allVis = shown.map((k) => sigByKey.get(k)).filter((s): s is VcdSignal => !!s);
+    if (!quickFilter.trim()) return allVis;
+    const q = quickFilter.trim().toLowerCase();
+    return allVis.filter((s) => s.name.toLowerCase().includes(q) || s.scope.toLowerCase().includes(q));
+  }, [shown, sigByKey, quickFilter]);
 
   const rowCount = visible.reduce((n, s) => n + (viewMode[keyOf(s)] === "bits" && s.width > 1 ? s.width : 1), 0);
   const width = Math.max(400, data.endTime * pxPerUnit);
@@ -209,10 +234,33 @@ export default function WaveformViewer({ data, runs = [], onLoadRun, seek }: Pro
     }
   };
 
+  const onWaveKeyDown = (e: React.KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      findEdge(-1);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      findEdge(1);
+    } else if (e.key === "+" || e.key === "=") {
+      e.preventDefault();
+      setPxPerUnit((p) => clamp(p * 1.6, 0.00005, 60));
+    } else if (e.key === "-") {
+      e.preventDefault();
+      setPxPerUnit((p) => clamp(p / 1.6, 0.00005, 60));
+    } else if (e.key.toLowerCase() === "f" || e.key === "0") {
+      e.preventDefault();
+      setPxPerUnit(fitZoom(data.endTime));
+    } else if (e.key === "Escape") {
+      setMarkers([]);
+      setCursor(null);
+    }
+  };
+
   let rowY = TOP_PAD;
 
   return (
-    <div className="wave-wrap">
+    <div className="wave-wrap" tabIndex={0} onKeyDown={onWaveKeyDown}>
       <div className="wave-toolbar">
         <div className="wave-picker-wrap" ref={pickerRef}>
           <button
@@ -235,6 +283,14 @@ export default function WaveformViewer({ data, runs = [], onLoadRun, seek }: Pro
             />
           )}
         </div>
+
+        <input
+          className="wave-quick-filter"
+          placeholder="Filter signals…"
+          value={quickFilter}
+          onChange={(e) => setQuickFilter(e.target.value)}
+          title="Type to filter displayed signals by name or scope"
+        />
 
         <div className="wave-divider" />
 
@@ -268,8 +324,17 @@ export default function WaveformViewer({ data, runs = [], onLoadRun, seek }: Pro
 
         <div className="spacer" />
 
-        <span className="cursor-time">
-          {delta != null ? `Δ ${delta} ${unit}` : cursor != null ? `t ${cursor} ${unit}` : `${data.endTime} ${unit}`}
+        <span
+          className="cursor-time"
+          title={delta != null ? `Delta: ${delta} ${unit}` : cursor != null ? `Cursor: ${cursor} ${unit}` : "End time"}
+        >
+          {delta != null
+            ? `Δ ${delta} ${unit}${formatFrequency(delta, unit) ? ` (${formatFrequency(delta, unit)})` : ""}${
+                markers.length === 2 ? ` [M1:${markers[0]}${unit}, M2:${markers[1]}${unit}]` : ""
+              }`
+            : cursor != null
+            ? `t ${cursor} ${unit}`
+            : `${data.endTime} ${unit}`}
         </span>
         {markers.length > 0 && (
           <button className="ghost-btn" onClick={() => setMarkers([])} title="Clear markers">
