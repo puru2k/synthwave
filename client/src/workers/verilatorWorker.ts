@@ -51,6 +51,7 @@ async function strictLint(
 
   const Mod = await factory({
     noInitialRun: true,
+    locateFile: (p: string) => toUrl(BASE + p),
     print: (s: string) => out.push(s),
     printErr: (s: string) => err.push(s),
     onExit: (c: number) => resolveExit(c),

@@ -204,6 +204,7 @@ export default function App() {
   const [shareMsg, setShareMsg] = useState<string | null>(null);
   const [log, setLog] = useState<string>("Ready. Lint, simulate, or synthesize your design.");
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
+  const [lintClean, setLintClean] = useState(false);
   const [busy, setBusy] = useState<"verify" | "sim" | "synth" | "fsm" | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [openMenu, setOpenMenu] = useState<"settings" | "export" | null>(null);
@@ -1373,11 +1374,13 @@ export default function App() {
           <button className="btn" disabled={busy !== null} onClick={runVerify} title="Lint: syntax, elaboration & warnings (no testbench needed)">
             <IconCheck size={15} />
             {busy === "verify" ? "Linting…" : "Lint"}
-            {(errorCount > 0 || warnCount > 0) && (
+            {(errorCount > 0 || warnCount > 0) ? (
               <span className={errorCount > 0 ? "count-badge err" : "count-badge warn"}>
                 {errorCount > 0 ? errorCount : warnCount}
               </span>
-            )}
+            ) : lintClean ? (
+              <span className="count-badge pass">✓ clean</span>
+            ) : null}
           </button>
           <button className="btn primary" disabled={busy !== null} onClick={() => runSimulation()} title="Compile & simulate the testbench">
             <IconPlay size={15} />
@@ -1935,13 +1938,38 @@ export default function App() {
             <button className={outputTab === "waveform" ? "tab active" : "tab"} onClick={() => setOutputTab("waveform")}>
               Waveform
             </button>
-            <button className={outputTab === "schematic" ? "tab active" : "tab"} onClick={() => setOutputTab("schematic")}>
+            <button
+              className={outputTab === "schematic" ? "tab active" : "tab"}
+              onClick={() => {
+                setOutputTab("schematic");
+                if (!svg && !netlistJson && busy === null && designSources().length > 0) {
+                  runSynthesis();
+                }
+              }}
+            >
               Synthesis
             </button>
-            <button className={outputTab === "reports" ? "tab active" : "tab"} onClick={() => setOutputTab("reports")}>
+            <button
+              className={outputTab === "reports" ? "tab active" : "tab"}
+              onClick={() => {
+                setOutputTab("reports");
+                if ((!netlistJson || !stats?.area) && busy === null && designSources().length > 0) {
+                  setSynthMode("gate");
+                  runSynthesis("gate", "reports");
+                }
+              }}
+            >
               Reports
             </button>
-            <button className={outputTab === "fsm" ? "tab active" : "tab"} onClick={() => setOutputTab("fsm")}>
+            <button
+              className={outputTab === "fsm" ? "tab active" : "tab"}
+              onClick={() => {
+                setOutputTab("fsm");
+                if (!fsm && busy === null && designSources().length > 0) {
+                  runFsm();
+                }
+              }}
+            >
               FSM
             </button>
             <button className={outputTab === "log" ? "tab active" : "tab"} onClick={() => setOutputTab("log")}>
@@ -2065,9 +2093,25 @@ export default function App() {
               ) : (
                 <div className="empty fsm-empty">
                   {fsmLog ? (
-                    <pre className="console fsm-msg">{fsmLog}</pre>
+                    <div style={{ maxWidth: 540, textAlign: "center" }}>
+                      <pre className="console fsm-msg" style={{ marginBottom: 12 }}>{fsmLog}</pre>
+                      <div className="muted" style={{ marginBottom: 12 }}>
+                        FSM extraction requires a state register with synchronous transition logic. Try an FSM example:
+                      </div>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 16 }}>
+                        <button className="btn" onClick={() => loadSampleAsProject("Traffic Light Controller")}>
+                          🚦 Traffic Light Controller
+                        </button>
+                        <button className="btn" onClick={() => loadSampleAsProject("SPI Master Controller")}>
+                          ⚡ SPI Master Controller
+                        </button>
+                        <button className="btn" onClick={() => loadSampleAsProject("Sequence Detector (1011)")}>
+                          🔍 Sequence Detector
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                    <span>Extract a finite-state machine from your design and view it as a bubble diagram.</span>
+                    <span>Extract a finite-state machine from your design and view it as an interactive bubble diagram.</span>
                   )}
                   <button className="btn" disabled={busy !== null} onClick={runFsm}>
                     {busy === "fsm" ? "Extracting..." : "Extract FSM"}

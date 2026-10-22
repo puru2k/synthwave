@@ -3867,99 +3867,98 @@ endmodule
     name: "RISC-V RV32I Core Execution Unit",
     category: "Processor",
     top: "riscv_core_block",
-    design: `// RV32I Single-Cycle Instruction Decoder & ALU Block
-module riscv_core_block (
-    input  wire [31:0] instr,
-    input  wire [31:0] rs1_data,
-    input  wire [31:0] rs2_data,
-    input  wire [31:0] pc,
-    output reg  [31:0] alu_result,
-    output wire        zero,
-    output reg         branch_taken,
-    output reg  [4:0]  rd_addr,
-    output reg         reg_write,
-    output reg  [31:0] imm_val
+    design: `// RV32I Single-Cycle Execution Stage (ALU, Branch & Immediate Decoder)
+module riscv_core_block #(
+    parameter W = 16
+) (
+    input  wire [31:0]  instr,
+    input  wire [W-1:0] rs1_data,
+    input  wire [W-1:0] rs2_data,
+    input  wire [W-1:0] pc,
+    output reg  [W-1:0] alu_result,
+    output wire         zero,
+    output reg          branch_taken,
+    output wire [4:0]   rd_addr,
+    output reg          reg_write,
+    output reg  [W-1:0] imm_val
 );
     wire [6:0] opcode = instr[6:0];
     wire [2:0] funct3 = instr[14:12];
     wire [6:0] funct7 = instr[31:25];
-    wire [4:0] rd     = instr[11:7];
+    assign rd_addr = instr[11:7];
 
     // Immediate decoding
     always @(*) begin
         case (opcode)
-            7'b0010011, 7'b0000011: imm_val = {{20{instr[31]}}, instr[31:20]}; // I-type
-            7'b0100011:             imm_val = {{20{instr[31]}}, instr[31:25], instr[11:7]}; // S-type
-            7'b1100011:             imm_val = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0}; // B-type
-            7'b0110111, 7'b0010111: imm_val = {instr[31:12], 12'b0}; // U-type
-            7'b1101111:             imm_val = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0}; // J-type
-            default:                imm_val = 32'b0;
+            7'b0010011, 7'b0000011: imm_val = {{ (W-12){instr[31]} }, instr[31:20]}; // I-type
+            7'b0100011:             imm_val = {{ (W-12){instr[31]} }, instr[31:25], instr[11:7]}; // S-type
+            7'b1100011:             imm_val = {{ (W-12){instr[31]} }, instr[7], instr[30:25], instr[11:8]}; // B-type
+            7'b0110111, 7'b0010111: imm_val = instr[31 -: W]; // U-type
+            7'b1101111:             imm_val = {{ (W-12){instr[31]} }, instr[19:12], instr[20], instr[30:21]}; // J-type
+            default:                imm_val = {W{1'b0}};
         endcase
     end
 
-    wire [31:0] op1 = (opcode == 7'b1101111) ? pc : rs1_data;
-    wire [31:0] op2 = (opcode == 7'b0110011) ? rs2_data :
-                      (opcode == 7'b0110111) ? imm_val :
-                      (opcode == 7'b1101111) ? 32'd4 : imm_val;
+    wire is_r_type = (opcode == 7'b0110011);
+    wire is_jal    = (opcode == 7'b1101111);
+    wire is_lui    = (opcode == 7'b0110111);
+    wire [W-1:0] op1 = is_jal ? pc : rs1_data;
+    wire [W-1:0] op2 = is_r_type ? rs2_data : (is_jal ? {{(W-3){1'b0}}, 3'd4} : imm_val);
 
-    // ALU
+    wire is_sub = is_r_type && funct7[5] && (funct3 == 3'b000);
+    wire is_sra = funct7[5] && (funct3 == 3'b101);
+
+    // ALU Execution
     always @(*) begin
-        case (opcode)
-            7'b0110111: alu_result = imm_val; // LUI
-            7'b1101111: alu_result = pc + 4;  // JAL link address
-            default: begin
-                case (funct3)
-                    3'b000: begin
-                        if (opcode == 7'b0110011 && funct7[5]) alu_result = op1 - op2; // SUB
-                        else alu_result = op1 + op2; // ADD / ADDI
-                    end
-                    3'b001: alu_result = op1 << op2[4:0]; // SLL
-                    3'b010: alu_result = ($signed(op1) < $signed(op2)) ? 32'd1 : 32'd0; // SLT
-                    3'b011: alu_result = (op1 < op2) ? 32'd1 : 32'd0; // SLTU
-                    3'b100: alu_result = op1 ^ op2; // XOR
-                    3'b101: begin
-                        if (funct7[5]) alu_result = $signed(op1) >>> op2[4:0]; // SRA
-                        else alu_result = op1 >> op2[4:0]; // SRL
-                    end
-                    3'b110: alu_result = op1 | op2; // OR
-                    3'b111: alu_result = op1 & op2; // AND
-                    default: alu_result = 32'b0;
-                endcase
-            end
-        endcase
+        if (is_lui) begin
+            alu_result = imm_val;
+        end else if (is_jal) begin
+            alu_result = pc + {{(W-3){1'b0}}, 3'd4};
+        end else begin
+            case (funct3)
+                3'b000:  alu_result = is_sub ? (op1 - op2) : (op1 + op2);
+                3'b001:  alu_result = op1 << op2[3:0];
+                3'b010:  alu_result = ($signed(op1) < $signed(op2)) ? {{(W-1){1'b0}}, 1'b1} : {W{1'b0}};
+                3'b011:  alu_result = (op1 < op2) ? {{(W-1){1'b0}}, 1'b1} : {W{1'b0}};
+                3'b100:  alu_result = op1 ^ op2;
+                3'b101:  alu_result = is_sra ? ($signed(op1) >>> op2[3:0]) : (op1 >> op2[3:0]);
+                3'b110:  alu_result = op1 | op2;
+                3'b111:  alu_result = op1 & op2;
+                default: alu_result = op1 + op2;
+            endcase
+        end
     end
 
-    assign zero = (alu_result == 32'b0);
+    assign zero = (alu_result == {W{1'b0}});
 
     // Branch condition
     always @(*) begin
-        branch_taken = 1'b0;
-        if (opcode == 7'b1100011) begin // Branch
+        if (opcode == 7'b1100011) begin
             case (funct3)
-                3'b000: branch_taken = (rs1_data == rs2_data); // BEQ
-                3'b001: branch_taken = (rs1_data != rs2_data); // BNE
-                3'b100: branch_taken = ($signed(rs1_data) < $signed(rs2_data)); // BLT
-                3'b101: branch_taken = ($signed(rs1_data) >= $signed(rs2_data)); // BGE
-                3'b110: branch_taken = (rs1_data < rs2_data); // BLTU
-                3'b111: branch_taken = (rs1_data >= rs2_data); // BGEU
+                3'b000:  branch_taken = (rs1_data == rs2_data); // BEQ
+                3'b001:  branch_taken = (rs1_data != rs2_data); // BNE
+                3'b100:  branch_taken = ($signed(rs1_data) < $signed(rs2_data)); // BLT
+                3'b101:  branch_taken = ($signed(rs1_data) >= $signed(rs2_data)); // BGE
+                3'b110:  branch_taken = (rs1_data < rs2_data); // BLTU
+                3'b111:  branch_taken = (rs1_data >= rs2_data); // BGEU
                 default: branch_taken = 1'b0;
             endcase
-        end else if (opcode == 7'b1101111) begin
-            branch_taken = 1'b1;
+        end else begin
+            branch_taken = is_jal;
         end
     end
 
     always @(*) begin
-        rd_addr   = rd;
         reg_write = (opcode == 7'b0110011 || opcode == 7'b0010011 || opcode == 7'b0000011 || opcode == 7'b0110111 || opcode == 7'b1101111);
     end
 endmodule
 `,
     testbench: TS + `module tb;
-    reg [31:0] instr, rs1_data, rs2_data, pc;
-    wire [31:0] alu_result, imm_val; wire zero, branch_taken, reg_write; wire [4:0] rd_addr;
+    reg [31:0] instr;
+    reg [15:0] rs1_data, rs2_data, pc;
+    wire [15:0] alu_result, imm_val; wire zero, branch_taken, reg_write; wire [4:0] rd_addr;
 
-    riscv_core_block dut (
+    riscv_core_block #(.W(16)) dut (
         .instr(instr), .rs1_data(rs1_data), .rs2_data(rs2_data), .pc(pc),
         .alu_result(alu_result), .zero(zero), .branch_taken(branch_taken),
         .rd_addr(rd_addr), .reg_write(reg_write), .imm_val(imm_val)

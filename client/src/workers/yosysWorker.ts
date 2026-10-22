@@ -30,9 +30,13 @@ async function getRunYosys(): Promise<RunYosys> {
   return runYosysPromise;
 }
 
-const decode = (b: Uint8Array | string | null): string => {
+const decode = (b: any): string => {
   if (b == null) return "";
-  return typeof b === "string" ? b : new TextDecoder().decode(b);
+  if (typeof b === "string") return b;
+  if (b instanceof Uint8Array || b instanceof ArrayBuffer || ArrayBuffer.isView(b)) {
+    return new TextDecoder().decode(b);
+  }
+  return String(b);
 };
 
 self.onmessage = async (ev: MessageEvent) => {
