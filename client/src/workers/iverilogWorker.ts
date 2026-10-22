@@ -42,6 +42,12 @@ const ICONFIG_LINT = iconfig("nidRpsta");
 
 type Factory = (opts: any) => Promise<any>;
 
+const toUrl = (p: string) =>
+  typeof self !== "undefined" && self.location && self.location.origin ? new URL(p, self.location.origin).href : p;
+
+// Bypass Vite's dev-mode transform restriction on public/ static asset imports
+const importStatic = (url: string): Promise<any> => (new Function("u", "return import(u)"))(toUrl(url));
+
 // Module factories + the side-module/config bytes are fetched once and reused.
 let factories: { ivlpp: Factory; ivl: Factory; vvp: Factory } | null = null;
 let assets: { vvpConf: string; vvpTgt: Uint8Array; systemVpi: Uint8Array } | null = null;
@@ -49,9 +55,9 @@ let assets: { vvpConf: string; vvpTgt: Uint8Array; systemVpi: Uint8Array } | nul
 async function loadFactories() {
   if (factories) return factories;
   const [ivlpp, ivl, vvp] = await Promise.all([
-    import(/* @vite-ignore */ BASE + "ivlpp.mjs"),
-    import(/* @vite-ignore */ BASE + "ivl.mjs"),
-    import(/* @vite-ignore */ BASE + "vvp.mjs"),
+    importStatic(BASE + "ivlpp.mjs"),
+    importStatic(BASE + "ivl.mjs"),
+    importStatic(BASE + "vvp.mjs"),
   ]);
   factories = { ivlpp: ivlpp.default, ivl: ivl.default, vvp: vvp.default };
   return factories;

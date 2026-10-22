@@ -9,11 +9,18 @@ export {}; // ensure module scope (isolate top-level names from other workers)
 const BASE = import.meta.env.BASE_URL + "wasm/verilator/";
 
 type Factory = (opts: any) => Promise<any>;
+
+const toUrl = (p: string) =>
+  typeof self !== "undefined" && self.location && self.location.origin ? new URL(p, self.location.origin).href : p;
+
+// Bypass Vite's dev-mode transform restriction on public/ static asset imports
+const importStatic = (url: string): Promise<any> => (new Function("u", "return import(u)"))(toUrl(url));
+
 let factory: Factory | null = null;
 let std: { sv: string; waiver: string } | null = null;
 
 async function load() {
-  if (!factory) factory = (await import(/* @vite-ignore */ BASE + "verilator_bin.mjs")).default;
+  if (!factory) factory = (await importStatic(BASE + "verilator_bin.mjs")).default;
   if (!std) {
     const [sv, waiver] = await Promise.all([
       fetch(BASE + "include/verilated_std.sv").then((r) => r.text()),

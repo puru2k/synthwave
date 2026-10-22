@@ -16,10 +16,16 @@ type RunYosys = (
   options?: { stdout?: (b: Uint8Array | string | null) => void; stderr?: (b: Uint8Array | string | null) => void }
 ) => Promise<Record<string, string | Uint8Array>>;
 
+const toUrl = (p: string) =>
+  typeof self !== "undefined" && self.location && self.location.origin ? new URL(p, self.location.origin).href : p;
+
+// Bypass Vite's dev-mode transform restriction on public/ static asset imports
+const importStatic = (url: string): Promise<any> => (new Function("u", "return import(u)"))(toUrl(url));
+
 let runYosysPromise: Promise<RunYosys> | null = null;
 async function getRunYosys(): Promise<RunYosys> {
   if (!runYosysPromise) {
-    runYosysPromise = import(/* @vite-ignore */ BUNDLE).then((m: any) => m.runYosys as RunYosys);
+    runYosysPromise = importStatic(BUNDLE).then((m: any) => m.runYosys as RunYosys);
   }
   return runYosysPromise;
 }
