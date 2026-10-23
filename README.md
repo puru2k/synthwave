@@ -2,9 +2,7 @@
 
 > **Work in progress** — SynthWave is a lightweight, modern web-based IDE for digital logic design, simulation, and synthesis. It runs a full Verilog EDA toolchain directly in your browser without requiring local installation.
 
-**Live Web App:**
-- **Netlify:** [verilog-synthwave.netlify.app](https://verilog-synthwave.netlify.app)
-- **GitHub Pages:** [puru2k.github.io/synthwave](https://puru2k.github.io/synthwave/)
+**Live Web App:** [puru2k.github.io/synthwave](https://puru2k.github.io/synthwave/) — runs the full EDA toolchain client-side in your browser with zero installation needed.
 
 SynthWave provides a single workspace to write, lint, simulate, and synthesize Verilog and SystemVerilog designs. Write code and immediately inspect VCD waveforms, gate-level schematics, FSM state diagrams, and logic utilization reports.
 
@@ -151,10 +149,7 @@ npm run build
 ## Deployment
 
 ### GitHub Pages (Automated via GitHub Actions)
-A workflow at `.github/workflows/deploy.yml` automatically triggers on pushes to `main`. It builds the client with the appropriate sub-path configuration and publishes it to `https://puru2k.github.io/synthwave/`.
-
-### Netlify
-SynthWave includes root and client configurations (`netlify.toml`) with automated client base building, single-page application route rewrites, and Service Worker caching headers.
+A workflow at `.github/workflows/deploy.yml` automatically triggers on pushes to `main`. It builds the client with the appropriate sub-path configuration and publishes it to [puru2k.github.io/synthwave](https://puru2k.github.io/synthwave/).
 
 ---
 

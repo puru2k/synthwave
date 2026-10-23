@@ -5,8 +5,7 @@ import { fileURLToPath } from "node:url";
 const emptyShim = fileURLToPath(new URL("./src/lib/empty-shim.js", import.meta.url));
 
 export default defineConfig({
-  // "/" for a root domain (Netlify/Cloudflare/user.github.io) or "/<repo>/" for
-  // a GitHub Pages project site. The deploy workflow sets BASE_PATH.
+  // "/" for a root domain (user.github.io) or "/<repo>/" for a GitHub Pages project site.
   base: process.env.BASE_PATH || "/",
   plugins: [react()],
   resolve: {

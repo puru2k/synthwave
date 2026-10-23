@@ -96,7 +96,7 @@ export function extractFsm(files: SourceFile[], top: string) {
 export async function getHealth(): Promise<HealthResponse> {
   if (isTauri()) return nativeHealth();
   const res = await fetch("/api/health");
-  // On a static host (Netlify/GitHub Pages) an SPA redirect can answer /api/health
+  // On a static host (GitHub Pages) an SPA redirect can answer /api/health
   // with the index.html shell at status 200. Reject anything that isn't real JSON
   // from the backend so we don't mistake a static host for a live server.
   if (!res.ok) throw new Error(`health ${res.status}`);

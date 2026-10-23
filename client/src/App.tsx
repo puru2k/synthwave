@@ -439,6 +439,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onGlobalKeyDown);
     return () => window.removeEventListener("keydown", onGlobalKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy, activeFile, shortcutsOpen]);
 
   // Keyboard support for the in-app confirm dialog: Enter confirms, Esc cancels.
@@ -851,7 +852,9 @@ export default function App() {
 
   const showLog = (text: string) => {
     setLog(text);
-    setDiagnostics(parseDiagnostics(text));
+    const diags = parseDiagnostics(text);
+    setDiagnostics(diags);
+    setLintClean(diags.length === 0 && (text.includes("Clean") || text.includes("OK") || text.includes("clean")));
   };
 
   const runVerify = async () => {

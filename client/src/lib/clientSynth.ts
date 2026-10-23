@@ -67,7 +67,9 @@ async function renderSchematic(netlistText: string): Promise<string> {
   if (w?.define) {
     try {
       w.define.amd = false;
-    } catch {}
+    } catch {
+      // Ignore if define.amd cannot be modified
+    }
   }
   try {
     const ns: any = await import("netlistsvg");
@@ -77,7 +79,9 @@ async function renderSchematic(netlistText: string): Promise<string> {
     if (w?.define && prevAmd !== undefined) {
       try {
         w.define.amd = prevAmd;
-      } catch {}
+      } catch {
+        // Ignore if define.amd cannot be restored
+      }
     }
   }
 }

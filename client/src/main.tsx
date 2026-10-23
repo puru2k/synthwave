@@ -22,13 +22,17 @@ if (typeof window !== "undefined") {
         if (_define && typeof _define === "function") {
           try {
             _define.amd = false;
-          } catch {}
+          } catch {
+            // Ignore if define.amd cannot be modified
+          }
         }
       },
       configurable: true,
       enumerable: true,
     });
-  } catch {}
+  } catch {
+    // Ignore if window.define cannot be intercepted
+  }
 }
 
 registerServiceWorker();
