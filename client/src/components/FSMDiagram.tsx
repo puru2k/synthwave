@@ -50,18 +50,21 @@ export default function FSMDiagram({ fsm, labels }: Props) {
   return (
     <div className="fsm-wrap">
       <div className="fsm-toolbar">
-        <span className="muted">
+        <span className="muted fsm-info">
           {fsm.kind && (
             <span className={`fsm-kind fsm-kind-${fsm.kind}`} title={kindHint(fsm.kind)}>
               {fsm.kind === "moore" ? "Moore" : "Mealy"}
             </span>
           )}
-          {N} states · {fsm.transitions.length} transitions · reset =
-          <b className="fsm-reset-label"> {stateLabel(fsm.reset, labels)}</b>
+          <span>{N} states · {fsm.transitions.length} transitions</span>
+          {fsm.reset !== undefined && (
+            <span> · reset = <b className="fsm-reset-label">{stateLabel(fsm.reset, labels)}</b></span>
+          )}
         </span>
+        <div className="spacer" />
         {fsm.kind && (
           <span className="fsm-legend muted">
-            {isMoore ? "output shown in state (output = f(state))" : "label = input / output (output = f(state, input))"}
+            {isMoore ? "output = f(state)" : "edge: in / out"}
           </span>
         )}
       </div>

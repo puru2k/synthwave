@@ -208,21 +208,22 @@ export default function Schematic({ svg, srcMap, onJump, topModule }: Props) {
   return (
     <div className="schem-wrap">
       <div className="schem-toolbar">
-        <span className="muted">
-          synthesized netlist · drag to pan · ⌘/Ctrl-scroll to zoom
-          {xrefCount > 0 ? " · click a cell to jump to its RTL" : ""}
+        <span className="muted schem-hint" title="Drag to pan · Ctrl/Cmd-scroll to zoom">
+          drag to pan · Ctrl/Cmd-scroll to zoom{xrefCount > 0 ? " · click cell to jump to RTL" : ""}
         </span>
         <div className="spacer" />
-        <button onClick={() => zoomBy(1 / 1.25)} title="Zoom out">-</button>
-        <span className="muted">{Math.round(zoom * 100)}%</span>
-        <button onClick={() => zoomBy(1.25)} title="Zoom in">+</button>
-        <button onClick={fitToView} title="Fit the whole schematic to the view">Fit</button>
-        <button onClick={() => setZoom(1)} title="Reset to 100%">100%</button>
-        <div className="wave-divider" />
-        <button onClick={exportSvg} title="Download schematic as SVG vector image">Export SVG</button>
-        <button onClick={exportPng} disabled={exportingPng} title="Download high-resolution PNG image">
-          {exportingPng ? "Exporting…" : "Export PNG"}
-        </button>
+        <div className="schem-actions">
+          <button className="schem-btn" onClick={() => zoomBy(1 / 1.25)} title="Zoom out">−</button>
+          <span className="schem-zoom-pct">{Math.round(zoom * 100)}%</span>
+          <button className="schem-btn" onClick={() => zoomBy(1.25)} title="Zoom in">+</button>
+          <button className="schem-btn" onClick={fitToView} title="Fit schematic to view">Fit</button>
+          <button className="schem-btn" onClick={() => setZoom(1)} title="Reset to 100%">100%</button>
+          <div className="schem-divider" />
+          <button className="schem-btn" onClick={exportSvg} title="Download schematic as SVG vector image">SVG</button>
+          <button className="schem-btn" onClick={exportPng} disabled={exportingPng} title="Download high-resolution PNG image">
+            {exportingPng ? "…" : "PNG"}
+          </button>
+        </div>
       </div>
       <div
         className="schem-scroll"

@@ -1,12 +1,15 @@
 // Minimal line-style icons. They inherit color from the surrounding text
 // (stroke="currentColor"), so they automatically follow the active theme.
 
-interface IconProps {
+import type React from "react";
+
+export interface IconProps {
   size?: number;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-const base = (size: number, className?: string) => ({
+const base = (size: number, className?: string, style?: React.CSSProperties) => ({
   width: size,
   height: size,
   viewBox: "0 0 24 24",
@@ -16,6 +19,7 @@ const base = (size: number, className?: string) => ({
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
   className,
+  style,
   "aria-hidden": true,
 });
 
@@ -118,9 +122,9 @@ export function IconClose({ size = 14, className }: IconProps) {
   );
 }
 
-export function IconChevron({ size = 14, className }: IconProps) {
+export function IconChevron({ size = 14, className, style }: IconProps) {
   return (
-    <svg {...base(size, className)}>
+    <svg {...base(size, className, style)}>
       <polyline points="9 6 15 12 9 18" />
     </svg>
   );
@@ -167,9 +171,9 @@ export function IconPlay({ size = 16, className }: IconProps) {
   );
 }
 
-export function IconCheck({ size = 16, className }: IconProps) {
+export function IconCheck({ size = 16, className, style }: IconProps) {
   return (
-    <svg {...base(size, className)}>
+    <svg {...base(size, className, style)}>
       <path d="M4 12.5l5 5L20 6.5" />
     </svg>
   );
@@ -202,6 +206,97 @@ export function IconHierarchy({ size = 15, className }: IconProps) {
       <rect x="3" y="17" width="6" height="4" rx="1" />
       <rect x="15" y="17" width="6" height="4" rx="1" />
       <path d="M12 7v4M6 17v-2a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
+// Format / reindent code
+export function IconAlignLeft({ size = 15, className }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <line x1="21" y1="6" x2="3" y2="6" />
+      <line x1="15" y1="12" x2="3" y2="12" />
+      <line x1="19" y1="18" x2="3" y2="18" />
+    </svg>
+  );
+}
+
+// Code / snippet template icon
+export function IconCode({ size = 15, className }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <polyline points="16 18 22 12 16 6" />
+      <polyline points="8 6 2 12 8 18" />
+    </svg>
+  );
+}
+
+// Keyboard shortcuts icon
+export function IconKeyboard({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <rect x="2" y="4" width="20" height="16" rx="2.5" />
+      <line x1="6" y1="8" x2="6.01" y2="8" strokeWidth="2.4" />
+      <line x1="10" y1="8" x2="10.01" y2="8" strokeWidth="2.4" />
+      <line x1="14" y1="8" x2="14.01" y2="8" strokeWidth="2.4" />
+      <line x1="18" y1="8" x2="18.01" y2="8" strokeWidth="2.4" />
+      <line x1="6" y1="12" x2="6.01" y2="12" strokeWidth="2.4" />
+      <line x1="10" y1="12" x2="10.01" y2="12" strokeWidth="2.4" />
+      <line x1="14" y1="12" x2="14.01" y2="12" strokeWidth="2.4" />
+      <line x1="18" y1="12" x2="18.01" y2="12" strokeWidth="2.4" />
+      <line x1="7" y1="16" x2="17" y2="16" />
+    </svg>
+  );
+}
+
+// Help / question icon
+export function IconHelpCircle({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" strokeWidth="2.4" />
+    </svg>
+  );
+}
+
+// Clock / timing icon
+export function IconClock({ size = 14, className, style }: IconProps) {
+  return (
+    <svg {...base(size, className, style)}>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+// Fast / WASM bolt icon
+export function IconBolt({ size = 14, className, style }: IconProps) {
+  return (
+    <svg {...base(size, className, style)}>
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  );
+}
+
+// Warning triangle icon
+export function IconAlertTriangle({ size = 15, className, style }: IconProps) {
+  return (
+    <svg {...base(size, className, style)}>
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" strokeWidth="2.4" />
+    </svg>
+  );
+}
+
+// Layers / FSM state icon
+export function IconLayers({ size = 15, className }: IconProps) {
+  return (
+    <svg {...base(size, className)}>
+      <polygon points="12 2 2 7 12 12 22 7 12 2" />
+      <polyline points="2 17 12 22 22 17" />
+      <polyline points="2 12 12 17 22 12" />
     </svg>
   );
 }

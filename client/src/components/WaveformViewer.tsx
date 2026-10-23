@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconChevron } from "./Icons";
 import type { VcdData, VcdSignal } from "../lib/vcd";
 import { valueAtTime } from "../lib/vcd";
 
@@ -268,7 +269,7 @@ export default function WaveformViewer({ data, runs = [], onLoadRun, seek }: Pro
             onClick={() => setPickerOpen((o) => !o)}
             title="Add or remove signals"
           >
-            Signals <span className="muted">{visible.length}/{data.signals.length}</span> ▾
+            Signals <span className="muted">{visible.length}/{data.signals.length}</span> <IconChevron size={11} style={{ display: "inline-block", verticalAlign: "middle", marginLeft: 2 }} />
           </button>
           {pickerOpen && (
             <SignalPicker
@@ -314,8 +315,8 @@ export default function WaveformViewer({ data, runs = [], onLoadRun, seek }: Pro
           ) : (
             <select value={edgeType} onChange={(e) => setEdgeType(e.target.value as "any" | "rise" | "fall")}>
               <option value="any">any</option>
-              <option value="rise">↑ rise</option>
-              <option value="fall">↓ fall</option>
+              <option value="rise">Rise</option>
+              <option value="fall">Fall</option>
             </select>
           )}
           <button onClick={() => findEdge(-1)} title="Previous">‹</button>

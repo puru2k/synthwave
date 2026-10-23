@@ -101,6 +101,35 @@ body {
   color: transparent;
 }
 
+.mobile-view-switcher {
+  display: none;
+  align-items: center;
+  background: var(--bg-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-pill);
+  padding: 2px;
+  gap: 2px;
+}
+.seg-pill {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.seg-pill:hover {
+  color: var(--text);
+}
+.seg-pill.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-1);
+}
+
 .toolset {
   display: flex;
   align-items: center;
@@ -145,15 +174,15 @@ body {
   background: var(--bg-3);
   border: 1px solid var(--border-subtle);
   color: var(--text);
-  border-radius: var(--r-sm);
-  padding: 7px 12px;
+  border-radius: var(--r-pill);
+  padding: 6px 14px;
   font-size: var(--fs-md);
   font-weight: 600;
   cursor: pointer;
   transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
 }
 .btn:hover:not(:disabled) { border-color: var(--border); background: var(--control-hover); }
-.btn:active:not(:disabled) { transform: translateY(0.5px); }
+.btn:active:not(:disabled) { transform: scale(0.98); }
 .btn:disabled { opacity: 0.45; cursor: default; }
 .btn svg { flex: 0 0 auto; }
 .btn.primary {
@@ -473,7 +502,16 @@ body.dragging-col * { user-select: none !important; }
 .tab:hover:not(.active) { color: var(--text); background: var(--hover); }
 
 /* File tabs (VS Code-style) */
-.file-tabs { align-items: stretch; overflow-x: auto; }
+.file-tabs {
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+  scrollbar-width: none;
+}
+.file-tabs::-webkit-scrollbar {
+  display: none;
+}
 .ftab {
   display: flex;
   align-items: center;
@@ -601,12 +639,13 @@ body.dragging-col * { user-select: none !important; }
   background: var(--bg-3);
   border: 1px solid var(--border-subtle);
   color: var(--text);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-pill);
   font-size: 16px;
   cursor: pointer;
-  transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
 }
 .icon-btn:hover:not(:disabled) { background: var(--control-hover); border-color: var(--border); }
+.icon-btn:active:not(:disabled) { transform: scale(0.95); }
 .icon-btn:disabled { opacity: 0.4; cursor: default; }
 .icon-btn.active { border-color: var(--accent); color: var(--accent); }
 
@@ -1005,18 +1044,50 @@ body.dragging-col * { user-select: none !important; }
   padding: 6px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-2);
+  min-width: 0;
 }
-.schem-toolbar button {
+.schem-hint {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+.schem-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.schem-btn {
   background: var(--bg-3);
   border: 1px solid var(--border-subtle);
   color: var(--text);
   border-radius: var(--r-sm);
-  padding: 2px 10px;
+  padding: 2px 9px;
   height: 26px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
   cursor: pointer;
   transition: background var(--t-fast), border-color var(--t-fast);
 }
-.schem-toolbar button:hover { background: var(--control-hover); border-color: var(--border); }
+.schem-btn:hover:not(:disabled) { background: var(--control-hover); border-color: var(--border); }
+.schem-btn:disabled { opacity: 0.45; cursor: default; }
+.schem-zoom-pct {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  min-width: 38px;
+  text-align: center;
+}
+.schem-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
+}
 .schem-scroll { overflow: auto; flex: 1; background: #f7f9fc; cursor: grab; touch-action: none; }
 .schem-scroll:active { cursor: grabbing; }
 .schem-canvas { padding: 20px; display: inline-block; }
@@ -1039,11 +1110,21 @@ body.dragging-col * { user-select: none !important; }
   border-bottom: 1px solid var(--border);
   background: var(--bg-2);
   font-size: var(--fs-sm);
+  min-width: 0;
+}
+.fsm-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .fsm-reset-label { color: var(--accent-2); }
 .fsm-kind {
   display: inline-block;
-  margin-right: 8px;
+  margin-right: 4px;
   padding: 1px 8px;
   border-radius: 999px;
   font-size: var(--fs-xs);
@@ -1051,10 +1132,11 @@ body.dragging-col * { user-select: none !important; }
   letter-spacing: 0.02em;
   text-transform: uppercase;
   cursor: help;
+  flex-shrink: 0;
 }
 .fsm-kind-moore { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
 .fsm-kind-mealy { background: color-mix(in srgb, var(--yellow) 24%, transparent); color: var(--yellow); }
-.fsm-legend { margin-left: auto; font-size: var(--fs-xs); opacity: 0.85; }
+.fsm-legend { margin-left: auto; font-size: var(--fs-xs); opacity: 0.85; flex-shrink: 0; }
 .fsm-scroll { overflow: auto; flex: 1; background: var(--bg); display: flex; justify-content: center; }
 .fsm-svg { display: block; }
 .fsm-node { fill: var(--bg-3); stroke: var(--accent); stroke-width: 1.6; }
@@ -1454,47 +1536,112 @@ body.dragging-col * { user-select: none !important; }
 .sidebar-backdrop { display: none; }
 
 /* ============================================================
-   Mobile / small screens
-   Stacks editor over output, turns the projects sidebar into a
-   slide-over drawer, and lets the toolbar wrap instead of overflow.
+   Mobile & Responsive Layout (Material You / M3)
+   Uses segmented view switcher on mobile (<768px) so Code and
+   Output each get 100% of the screen without vertical cramming.
+   Hides secondary labels to prevent toolbar overflows.
    ============================================================ */
-@media (max-width: 820px) {
-  /* Dynamic viewport height avoids jank from the mobile address bar. */
+@media (max-width: 768px) {
+  /* Dynamic viewport height avoids jank from mobile browser bars */
   .app { height: 100dvh; }
 
-  /* 16px inputs stop iOS from auto-zooming on focus; kill tap-flash. */
+  /* 16px inputs prevent auto-zoom on iOS; disable tap highlight */
   input,
   select,
   textarea { font-size: 16px; }
   button { -webkit-tap-highlight-color: transparent; }
 
-  /* Toolbar wraps to multiple rows rather than clipping controls. */
-  .topbar { flex-wrap: wrap; padding: 8px 10px; gap: 8px; }
-  .toolset { flex-wrap: wrap; gap: 6px; }
+  /* Topbar: compact and clean with switcher */
+  .topbar {
+    padding: 6px 8px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+  .mobile-view-switcher {
+    display: inline-flex !important;
+    flex-shrink: 0;
+    margin-left: 0;
+  }
+  .seg-pill {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+  .brand-text {
+    display: none !important;
+  }
+  .brand {
+    flex-shrink: 0;
+  }
+  .toolset {
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
   .toolset .btn,
-  .topbar .btn,
-  .topbar .icon-btn { min-height: 38px; }
-  .top-input input { width: 84px; }
+  .topbar .btn {
+    padding: 0 8px;
+    height: 30px;
+    font-size: var(--fs-xs);
+  }
+  .topbar .icon-btn {
+    width: 30px;
+    height: 30px;
+  }
+  .topbar-shortcuts-btn {
+    display: none !important;
+  }
+  .btn-label,
+  .tool-btn-text,
+  .schem-hint,
+  .fsm-legend {
+    display: none !important;
+  }
 
-  /* Editor on top, output below — both full width. */
-  .body { flex-direction: column; min-height: 0; }
-  .main { flex-direction: column; }
-  .pane.editor-pane { min-height: 220px; }
-  .pane.output-pane { min-height: 220px; }
-
-  /* The drag handles only make sense for a horizontal split, so hide them
-     on mobile; the maximize buttons cover resizing needs. */
+  /* Pane switching: Code vs Output full-screen view */
+  .body { flex-direction: row; min-height: 0; }
+  .main { flex-direction: row; width: 100%; }
+  
   .gutter,
-  .sidebar-resizer { display: none !important; }
+  .sidebar-resizer {
+    display: none !important;
+  }
 
-  /* Tabs scroll sideways instead of squashing the labels. */
+  .app[data-mobile-tab="editor"] .pane.editor-pane {
+    display: flex !important;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-height: 0 !important;
+  }
+  .app[data-mobile-tab="editor"] .pane.output-pane {
+    display: none !important;
+  }
+
+  .app[data-mobile-tab="output"] .pane.editor-pane {
+    display: none !important;
+  }
+  .app[data-mobile-tab="output"] .pane.output-pane {
+    display: flex !important;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-height: 0 !important;
+  }
+
+  /* Tabs scroll horizontally cleanly */
   .tabs {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tab {
+    flex-shrink: 0;
   }
 
-  /* Projects/Examples sidebar becomes an overlay drawer. */
+  /* Projects/Examples sidebar overlay drawer */
   .sidebar {
     position: fixed;
     top: 0;
@@ -1513,9 +1660,36 @@ body.dragging-col * { user-select: none !important; }
     z-index: 40;
   }
 
-  /* Keep popovers and menus inside the viewport. */
+  /* Keep popovers inside viewport */
   .modal { max-width: 94vw; }
   .menu { max-width: 90vw; }
+}
+
+@media (max-width: 480px) {
+  .topbar-shortcuts-btn {
+    display: none !important;
+  }
+  .topbar {
+    padding: 4px 6px;
+    gap: 4px;
+  }
+  .toolset {
+    gap: 4px;
+  }
+  .toolset .btn,
+  .topbar .btn {
+    padding: 0 6px;
+    height: 30px;
+    min-width: 30px;
+  }
+  .topbar .icon-btn {
+    width: 30px;
+    height: 30px;
+  }
+  .seg-pill {
+    padding: 2px 7px;
+    font-size: 11px;
+  }
 }
 
 /* ============================================================
@@ -1724,92 +1898,116 @@ body {
   border-radius: 12px;
 }
 
-/* Editor Tab Bar Actions */
+/* Editor Tab Bar Actions (Format & Snippets) */
 .ftab-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-right: 6px;
+  gap: 6px;
+  margin-right: 8px;
+  flex-shrink: 0;
 }
+.ftab-tool-btn,
 .ftab-action-btn {
-  background: transparent;
+  background: var(--bg-3);
   color: var(--muted);
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-pill);
   font-size: var(--fs-xs);
-  padding: 2px 7px;
+  font-weight: 500;
+  padding: 3px 10px;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  transition: all 0.15s ease;
+  gap: 5px;
+  white-space: nowrap;
+  transition: all var(--t-fast);
 }
+.ftab-tool-btn:hover:not(:disabled),
+.ftab-tool-btn.active,
 .ftab-action-btn:hover:not(:disabled),
 .ftab-action-btn.active {
   color: var(--text);
-  background: var(--bg-3);
+  background: var(--control-hover);
   border-color: var(--border);
 }
+.ftab-tool-btn:disabled,
 .ftab-action-btn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+.tool-btn-text {
+  font-size: var(--fs-xs);
+  font-weight: 500;
 }
 
 /* Snippets Dropdown */
 .snippet-picker-wrap {
   position: relative;
+  display: inline-flex;
 }
 .snippet-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 6px);
   right: 0;
-  margin-top: 4px;
-  width: 270px;
-  max-height: 340px;
-  overflow-y: auto;
+  width: 290px;
+  max-height: 380px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
   z-index: 100;
-  padding: 4px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
 .snippet-dropdown-title {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   color: var(--muted);
   padding: 4px 8px;
-  font-weight: 600;
+  font-weight: 700;
+}
+.snippet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  max-height: 320px;
 }
 .snippet-item {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   width: 100%;
-  padding: 6px 8px;
+  padding: 7px 10px;
   background: transparent;
-  border: none;
-  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
   color: var(--text);
   text-align: left;
   cursor: pointer;
   gap: 2px;
+  transition: background var(--t-fast), border-color var(--t-fast);
 }
 .snippet-item:hover {
-  background: var(--bg-2);
+  background: var(--hover);
+  border-color: var(--border-subtle);
 }
 .snippet-name {
-  font-family: "JetBrains Mono", Menlo, monospace;
+  font-family: var(--mono);
   font-size: var(--fs-xs);
   color: var(--accent);
   font-weight: 600;
 }
 .snippet-desc {
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   color: var(--muted);
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Keyboard Shortcuts Dialog */

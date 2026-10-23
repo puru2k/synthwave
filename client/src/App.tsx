@@ -67,6 +67,12 @@ import {
   IconCheck,
   IconCpu,
   IconSearch,
+  IconAlignLeft,
+  IconCode,
+  IconKeyboard,
+  IconClock,
+  IconBolt,
+  IconLayers,
 } from "./components/Icons";
 import FSMDiagram from "./components/FSMDiagram";
 
@@ -227,6 +233,7 @@ export default function App() {
   // Split / maximize layout state.
   const [splitPct, setSplitPct] = useState(bootWs.settings.splitPct);
   const [maximized, setMaximized] = useState<"editor" | "output" | null>(null);
+  const [mobileTab, setMobileTab] = useState<"editor" | "output">("editor");
   const mainRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const editorApiRef = useRef<{ editor: any; monaco: any } | null>(null);
@@ -922,12 +929,13 @@ export default function App() {
         setVcdText(res.vcd);
         const vcd = res.vcd;
         setWaveRuns((prev) => {
-          const eng = wasm ? " · ⚡in-browser" : "";
+          const eng = wasm ? " · in-browser" : "";
           const label = new Date().toLocaleTimeString() + (sampleName ? ` · ${sampleName}` : "") + eng;
           const run: WaveRun = { id: makeId(), label, vcd, at: Date.now() };
           return [run, ...prev].slice(0, 8);
         });
         setOutputTab("waveform");
+        setMobileTab("output");
       } else if (res.ok && !res.vcd) {
         setOutputTab("log");
         showLog((res.log || "") + "\n\nNo VCD produced. Make sure a testbench calls $dumpfile and $dumpvars." + note);
@@ -984,6 +992,7 @@ export default function App() {
         // clicked "Run gate-level synthesis" there); otherwise show the schematic
         // if we have one, falling back to the log.
         setOutputTab(focusTab ?? (res.svg ? "schematic" : "log"));
+        setMobileTab("output");
         if (res.renderError) showLog((res.log || "") + "\n\n[schematic render warning] " + res.renderError);
       } else {
         setSvg(null);
@@ -1237,11 +1246,25 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className="app" data-mobile-tab={mobileTab}>
       <header className="topbar" data-tauri-drag-region>
         <div className="brand">
           <span className="logo"><Logo size={26} /></span>
           <span className="brand-text">Synth<span className="brand-acc">Wave</span></span>
+        </div>
+        <div className="mobile-view-switcher" role="tablist" aria-label="Mobile View">
+          <button
+            className={mobileTab === "editor" ? "seg-pill active" : "seg-pill"}
+            onClick={() => setMobileTab("editor")}
+          >
+            Code
+          </button>
+          <button
+            className={mobileTab === "output" ? "seg-pill active" : "seg-pill"}
+            onClick={() => setMobileTab("output")}
+          >
+            Output
+          </button>
         </div>
         <div className="toolset">
           <button
@@ -1250,6 +1273,13 @@ export default function App() {
             onClick={() => setSidebarOpen((o) => !o)}
           >
             <IconPanelLeft />
+          </button>
+          <button
+            className="icon-btn topbar-shortcuts-btn"
+            title="Keyboard shortcuts (?)"
+            onClick={() => setShortcutsOpen(true)}
+          >
+            <IconKeyboard size={17} />
           </button>
           <div className="menu-wrap">
             <button
@@ -1386,6 +1416,17 @@ export default function App() {
                   Format Verilog (reindent)
                 </button>
                 <div className="menu-divider" />
+                <button
+                  className="menu-item"
+                  onClick={() => {
+                    setOpenMenu(null);
+                    setShortcutsOpen(true);
+                  }}
+                  title="View keyboard shortcuts"
+                >
+                  Keyboard shortcuts (?)
+                </button>
+                <div className="menu-divider" />
                 <button className="menu-item" onClick={closeAllFiles}>
                   Close all files
                 </button>
@@ -1395,18 +1436,18 @@ export default function App() {
 
           <button className="btn" disabled={busy !== null} onClick={runVerify} title="Lint: syntax, elaboration & warnings (no testbench needed)">
             <IconCheck size={15} />
-            {busy === "verify" ? "Linting…" : "Lint"}
+            <span className="btn-label">{busy === "verify" ? "Linting…" : "Lint"}</span>
             {(errorCount > 0 || warnCount > 0) ? (
               <span className={errorCount > 0 ? "count-badge err" : "count-badge warn"}>
                 {errorCount > 0 ? errorCount : warnCount}
               </span>
             ) : lintClean ? (
-              <span className="count-badge pass">✓ clean</span>
+              <span className="count-badge pass"><IconCheck size={11} style={{ marginRight: 3 }} />Clean</span>
             ) : null}
           </button>
           <button className="btn primary" disabled={busy !== null} onClick={() => runSimulation()} title="Compile & simulate the testbench">
             <IconPlay size={15} />
-            {busy === "sim" ? "Running…" : "Simulate"}
+            <span className="btn-label">{busy === "sim" ? "Running…" : "Simulate"}</span>
             {testResult.status !== "none" && (
               <span className={testResult.status === "pass" ? "count-badge pass" : "count-badge err"}>
                 {testResult.status === "pass" ? "PASS" : "FAIL"}
@@ -1415,7 +1456,7 @@ export default function App() {
           </button>
           <button className="btn" disabled={busy !== null} onClick={() => runSynthesis()} title="Synthesize the design to a circuit">
             <IconCpu size={15} />
-            {busy === "synth" ? "Synthesizing…" : "Synthesize"}
+            <span className="btn-label">{busy === "synth" ? "Synthesizing…" : "Synthesize"}</span>
           </button>
         </div>
       </header>
@@ -1866,46 +1907,47 @@ export default function App() {
             <div className="spacer" />
             <div className="ftab-actions">
               <button
-                className="ftab-action-btn"
+                className="ftab-tool-btn"
                 onClick={formatActiveFile}
                 disabled={!activeFile || !isHdl(activeFile.name)}
                 title="Format Verilog (reindent code) — Alt+Shift+F"
               >
-                Format
+                <IconAlignLeft size={14} />
+                <span className="tool-btn-text">Format</span>
               </button>
               <div className="snippet-picker-wrap" ref={snippetMenuRef}>
                 <button
-                  className={snippetMenuOpen ? "ftab-action-btn active" : "ftab-action-btn"}
+                  className={snippetMenuOpen ? "ftab-tool-btn active" : "ftab-tool-btn"}
                   onClick={() => setSnippetMenuOpen((o) => !o)}
                   disabled={!activeFile || !isHdl(activeFile.name)}
                   title="Insert Verilog snippet at cursor"
                 >
-                  ⚡ Snippets ▾
+                  <IconCode size={14} />
+                  <span className="tool-btn-text">Snippets</span>
+                  <IconChevron size={11} />
                 </button>
                 {snippetMenuOpen && (
                   <div className="snippet-dropdown">
-                    <div className="snippet-dropdown-title">Insert Snippet</div>
-                    {SNIPPETS.map((s, idx) => (
-                      <button
-                        key={idx}
-                        className="snippet-item"
-                        onClick={() => insertSnippet(s.body)}
-                        title={s.detail}
-                      >
-                        <span className="snippet-name">{s.label}</span>
-                        <span className="snippet-desc">{s.detail}</span>
-                      </button>
-                    ))}
+                    <div className="snippet-dropdown-title">Verilog Snippets</div>
+                    <div className="snippet-list">
+                      {SNIPPETS.map((s, idx) => (
+                        <button
+                          key={idx}
+                          className="snippet-item"
+                          onClick={() => {
+                            insertSnippet(s.body);
+                            setSnippetMenuOpen(false);
+                          }}
+                          title={s.detail}
+                        >
+                          <span className="snippet-name">{s.label}</span>
+                          <span className="snippet-desc">{s.detail}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-              <button
-                className="ftab-action-btn"
-                onClick={() => setShortcutsOpen(true)}
-                title="Keyboard shortcuts (?)"
-              >
-                ⌨ Keys
-              </button>
             </div>
             <button
               className="max-btn"
@@ -2052,7 +2094,7 @@ export default function App() {
                             : "Synthesized on the server with the Yosys CLI"
                         }
                       >
-                        {resultEngine === "wasm" ? "⚡ in-browser" : "server"}
+                        {resultEngine === "wasm" ? (<><IconBolt size={12} style={{ marginRight: 3, verticalAlign: "middle" }} />in-browser</>) : "server"}
                       </span>
                     )}
                     {stats && (
@@ -2061,7 +2103,7 @@ export default function App() {
                         <span className="stat"><b>{stats.ffs}</b> FFs</span>
                         {stats.depth ? (
                           <span className="stat" title="Rough critical path: longest chain of combinational cells between flip-flops / I/O">
-                            ⏱ ~<b>{stats.depth}</b> levels
+                            <IconClock size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />~<b>{stats.depth}</b> levels
                           </span>
                         ) : null}
                         {stats.area ? (
@@ -2122,13 +2164,13 @@ export default function App() {
                       </div>
                       <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginBottom: 16 }}>
                         <button className="btn" onClick={() => loadSampleAsProject("Traffic Light Controller")}>
-                          🚦 Traffic Light Controller
+                          <IconLayers size={14} style={{ marginRight: 6 }} />Traffic Light Controller
                         </button>
                         <button className="btn" onClick={() => loadSampleAsProject("SPI Master Controller")}>
-                          ⚡ SPI Master Controller
+                          <IconBolt size={14} style={{ marginRight: 6 }} />SPI Master Controller
                         </button>
                         <button className="btn" onClick={() => loadSampleAsProject("Sequence Detector (1011)")}>
-                          🔍 Sequence Detector
+                          <IconSearch size={14} style={{ marginRight: 6 }} />Sequence Detector
                         </button>
                       </div>
                     </div>
@@ -2232,7 +2274,7 @@ function LogView({ text, onSeek }: { text: string; onSeek?: (t: number) => void 
             title={`Jump waveform cursor to t = ${t}`}
             onClick={() => onSeek?.(t)}
           >
-            <span className="seek-tick">⏱</span>
+            <span className="seek-tick"><IconClock size={11} /></span>
             {line || "\u00a0"}
           </div>
         );

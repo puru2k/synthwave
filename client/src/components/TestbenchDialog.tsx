@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { ParsedModule } from "../lib/ports";
 import { defaultStim, generateTestbench, type PortStim, type SeqUnit, type StimKind, type TbSpec } from "../lib/tbgen";
-import { IconClose, IconPlay } from "./Icons";
+import { IconClose, IconPlay, IconAlertTriangle } from "./Icons";
 
 interface Props {
   modules: ParsedModule[];
@@ -252,7 +252,7 @@ export default function TestbenchDialog({ modules, defaultTop, onClose, onApply 
               </p>
               {lateSeqInputs.length > 0 && (
                 <p className="tb-warn">
-                  ⚠ Sequence steps at or after the sim length ({simEndNs}) won’t run for:{" "}
+                  <IconAlertTriangle size={14} style={{ display: "inline-block", verticalAlign: "text-bottom", marginRight: 4 }} /> Sequence steps at or after the sim length ({simEndNs}) won’t run for:{" "}
                   <span className="mono">{lateSeqInputs.join(", ")}</span>. Increase “Sim length”.
                 </p>
               )}

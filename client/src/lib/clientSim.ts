@@ -142,7 +142,7 @@ export async function strictLintWasm(files: SourceFile[], top = ""): Promise<Ver
     });
     return {
       ok,
-      log: log || (ok ? "✓ No errors or warnings. Verilator strict lint is clean." : "Strict lint failed."),
+      log: log || (ok ? "Clean: No errors or warnings. Verilator strict lint passed." : "Strict lint failed."),
     };
   } catch (e: any) {
     return { ok: false, log: "In-browser Verilator lint failed:\n\n" + (e?.message || String(e)) };
