@@ -36,7 +36,6 @@ import {
 } from "./lib/workspace";
 import { stateLabelMap, type FsmData } from "./lib/fsm";
 import { extractFsmFromSource } from "./lib/fsmSource";
-import { isTauri, setNativeAppearance } from "./lib/native";
 import { GENERIC_STDLIB, SKY130_STDLIB } from "./lib/liberty";
 import { synthesizeWasm, extractFsmWasm, warmupWasm } from "./lib/clientSynth";
 import { simulateWasm, lintWasm, strictLintWasm, warmupSim, warmupStrictLint } from "./lib/clientSim";
@@ -175,8 +174,9 @@ export default function App() {
   const [synthMode, setSynthMode] = useState<SynthMode>(bootWs.settings.synthMode);
   // In the desktop (Tauri) build, default to the native CLI toolchain; in the
   // browser, honor the saved engine (wasm for static deploys, server locally).
-  const [engine, setEngine] = useState<SynthEngine>(isTauri() ? "server" : bootWs.settings.engine);
-  const [theme, setTheme] = useState<string>(normalizeThemePref(bootWs.settings.theme));
+  const [engine, setEngine] = useState<SynthEngine>(bootWs.settings.engine);
+  const urlTheme = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("theme") : null;
+  const [theme, setTheme] = useState<string>(urlTheme ? normalizeThemePref(urlTheme) : normalizeThemePref(bootWs.settings.theme));
   const [smartSuggestions, setSmartSuggestions] = useState(bootWs.settings.smartSuggestions ?? true);
   // On phones the sidebar is a slide-over drawer; start it closed so it doesn't
   // cover the editor on first load.
@@ -252,19 +252,7 @@ export default function App() {
   // deploy it never will, so the Server engine is hidden and we stay in-browser.
   const serverAvailable = health != null;
 
-  // Tag the document so CSS can opt into native-desktop chrome (overlay
-  // titlebar inset, vibrancy) only inside the Tauri app, never on the web.
-  useEffect(() => {
-    const root = document.documentElement;
-    if (isTauri()) root.classList.add("is-tauri");
-    if (/Mac/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent)) {
-      root.classList.add("is-mac");
-    } else if (/Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent)) {
-      root.classList.add("is-windows");
-    } else if (/Linux/i.test(navigator.platform) || /Linux/i.test(navigator.userAgent)) {
-      root.classList.add("is-linux");
-    }
-  }, []);
+
 
   useEffect(() => {
     getHealth()
@@ -281,7 +269,7 @@ export default function App() {
       });
     // Prefetch the in-browser toolchains if the workspace booted on the wasm
     // engine — but never in the desktop build, where native tools are used.
-    if (!isTauri() && bootWs.settings.engine === "wasm") {
+    if (bootWs.settings.engine === "wasm") {
       warmupWasm();
       warmupSim();
       if (bootWs.settings.lintLevel === "strict") warmupStrictLint();
@@ -315,6 +303,17 @@ export default function App() {
       .finally(() => {
         history.replaceState(null, "", window.location.pathname + window.location.search);
       });
+  }, []);
+
+  // Quick URL testing parameter: ?sim=1 automatically triggers simulation on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("sim") === "1") {
+      const timer = setTimeout(() => {
+        runSimulation();
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist the whole workspace (debounced). The active project's snapshot is
@@ -358,7 +357,6 @@ export default function App() {
   useEffect(() => {
     const t = getTheme(resolvedTheme);
     applyThemeVars(t);
-    setNativeAppearance(t.dark ? "dark" : "light");
   }, [resolvedTheme]);
 
   // Global keyboard shortcuts
@@ -1197,7 +1195,7 @@ export default function App() {
 
   return (
     <div className="app" data-mobile-tab={mobileTab}>
-      <header className="topbar" data-tauri-drag-region>
+      <header className="topbar">
         <div className="brand">
           <span className="logo"><Logo size={26} /></span>
           <span className="brand-text">Synth<span className="brand-acc">Wave</span></span>
@@ -1301,18 +1299,16 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                {!isTauri() && (
-                  <div className="menu-section">
+                <div className="menu-section">
                     <span className="menu-label">Compute engine (simulate + synthesize)</span>
                     <select value={engine} onChange={(e) => changeEngine(e.target.value as SynthEngine)}>
                       <option value="wasm">In-browser (WebAssembly)</option>
                       {serverAvailable && <option value="server">Server (Icarus + Yosys CLI)</option>}
                     </select>
                     {!serverAvailable && (
-                      <span className="menu-hint">In-browser only — no backend on this host.</span>
+                      <span className="menu-hint">In-browser only — fully client-side.</span>
                     )}
                   </div>
-                )}
                 <div className="menu-section">
                   <span className="menu-label">Theme</span>
                   <select value={theme} onChange={(e) => setTheme(e.target.value)}>
@@ -1503,13 +1499,11 @@ export default function App() {
 
       {missingTools && (
         <div className="warn-banner">
-          {isTauri() ? "These tools weren't found on your system:" : "Some tools were not found on the server:"}
+          "Some tools were not found on the server:"
           {!health?.tools.iverilog && " iverilog"}
           {!health?.tools.vvp && " vvp"}
           {!health?.tools.yosys && " yosys"}
-          {isTauri()
-            ? " — install them (e.g. `brew install icarus-verilog yosys`) and reopen the app."
-            : " — install them and restart the server."}
+          " — install them and restart the server."
         </div>
       )}
 
@@ -1670,8 +1664,7 @@ export default function App() {
                 >
                   <IconUpload />
                 </button>
-                {!isTauri() && (
-                  <button
+                <button
                     className="icon-btn"
                     onClick={shareLink}
                     title="Copy a shareable link to this project"
@@ -1679,7 +1672,6 @@ export default function App() {
                   >
                     <IconShare />
                   </button>
-                )}
                 <div className="menu-wrap">
                   <button
                     className="icon-btn"
@@ -1974,7 +1966,7 @@ export default function App() {
                         Gate-level
                       </button>
                     </div>
-                    {!isTauri() && resultEngine && (
+                    {resultEngine && (
                       <span
                         className={resultEngine === "wasm" ? "engine-badge wasm" : "engine-badge"}
                         title={

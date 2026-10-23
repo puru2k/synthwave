@@ -2,14 +2,11 @@
   "name": "synthwave",
   "version": "1.0.0",
   "private": true,
-  "description": "SynthWave — write, simulate, lint, and synthesize Verilog/SystemVerilog. Runs in-browser (WebAssembly), against a local server, or as a self-contained desktop app.",
+  "description": "SynthWave — web-based in-browser IDE for Verilog and SystemVerilog design, simulation, and synthesis powered by WebAssembly.",
   "scripts": {
-    "install:all": "npm --prefix server install && npm --prefix client install",
-    "dev": "concurrently -n server,client -c blue,green \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev": "npm --prefix client run dev",
     "build": "npm --prefix client run build",
-    "start": "npm --prefix server start"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
+    "test": "npm --prefix client test",
+    "lint": "npm --prefix client run lint"
   }
 }

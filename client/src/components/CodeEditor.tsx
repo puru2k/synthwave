@@ -14,21 +14,33 @@ function defineThemes(monaco: any) {
   const hex = (c: string) => c.replace("#", "");
   for (const t of THEMES) {
     const e = t.editor;
+    const isDark = t.dark;
     monaco.editor.defineTheme(monacoName(t.id), {
       base: e.base,
       inherit: true,
       rules: [
-        { token: "keyword", foreground: hex(e.keyword) },
+        { token: "keyword", foreground: hex(e.keyword), fontStyle: "bold" },
         { token: "keyword.directive", foreground: hex(e.directive) },
         { token: "type", foreground: hex(e.type) },
         { token: "type.identifier", foreground: hex(e.type) },
+        { token: "identifier", foreground: hex(e.fg) },
+        { token: "delimiter", foreground: hex(isDark ? "#8b949e" : "#334155") },
+        { token: "operator", foreground: hex(isDark ? "#79c0ff" : "#0969da") },
         { token: "number", foreground: hex(e.number) },
+        { token: "number.hex", foreground: hex(e.number) },
+        { token: "number.float", foreground: hex(e.number) },
         { token: "string", foreground: hex(e.string) },
         { token: "comment", foreground: hex(e.comment), fontStyle: "italic" },
       ],
       colors: {
         "editor.background": e.bg,
         "editor.foreground": e.fg,
+        "editorLineNumber.foreground": isDark ? "#484f58" : "#94a3b8",
+        "editorLineNumber.activeForeground": isDark ? "#c9d1d9" : "#0f172a",
+        "editorGutter.background": e.bg,
+        "editor.lineHighlightBackground": isDark ? "#161b2280" : "#f1f5f9",
+        "editor.selectionBackground": isDark ? "#264f7880" : "#bae6fd80",
+        "editorCursor.foreground": isDark ? "#58a6ff" : "#0969da",
       },
     });
   }

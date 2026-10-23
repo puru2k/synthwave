@@ -26,7 +26,7 @@ const base = (size: number, className?: string, style?: React.CSSProperties) => 
 export function IconActivity({ size = 18, className }: IconProps) {
   return (
     <svg {...base(size, className)}>
-      <path d="M3 12h4l3 8 4-16 3 8h4" />
+      <path d="M2.5 16.5h2.5v-9h5v9h4v-9h5v9h2.5" />
     </svg>
   );
 }
@@ -138,7 +138,7 @@ export function IconFolder({ size = 15, className }: IconProps) {
   );
 }
 
-// SynthWave brand mark: clean, cohesive digital clock & pulse waveform
+// SynthWave brand mark: clean, cohesive digital clock pulse waveform
 export function Logo({ size = 20, className, style }: IconProps) {
   return (
     <svg
@@ -152,7 +152,7 @@ export function Logo({ size = 20, className, style }: IconProps) {
       aria-hidden="true"
     >
       <path
-        d="M2 13h4.5l2.5-7 4 14 3.5-9 2 4h4"
+        d="M2.5 16.5h2.5v-9h5v9h4v-9h5v9h2.5"
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
