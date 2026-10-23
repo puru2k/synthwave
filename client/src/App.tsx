@@ -1440,7 +1440,7 @@ export default function App() {
       )}
 
       {shortcutsOpen && (
-        <div className="confirm-scrim" onClick={() => setShortcutsOpen(false)}>
+        <div className="modal-backdrop" onClick={() => setShortcutsOpen(false)}>
           <div className="shortcuts-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
               <h3>Keyboard Shortcuts</h3>
@@ -1462,11 +1462,7 @@ export default function App() {
                 <span className="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>L</kbd></span>
               </div>
               <div className="shortcut-row">
-                <span className="shortcut-desc">Format Code (Reindent)</span>
-                <span className="shortcut-keys"><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></span>
-              </div>
-              <div className="shortcut-row">
-                <span className="shortcut-desc">Save / Format</span>
+                <span className="shortcut-desc">Save Project</span>
                 <span className="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></span>
               </div>
               <div className="shortcut-row">

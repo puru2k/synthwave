@@ -1750,6 +1750,16 @@ body {
 }
 
 /* Keyboard Shortcuts Dialog */
+.confirm-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
 .shortcuts-dialog {
   background: var(--panel);
   border: 1px solid var(--border);
