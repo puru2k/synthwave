@@ -114,12 +114,23 @@ export default function Schematic({ svg, srcMap, onJump, topModule }: Props) {
     setZoom(nz);
   };
 
-  // Auto-fit whenever a new schematic is rendered, so an oversized result is
-  // immediately visible instead of overflowing far beyond the viewport.
+  // Auto-fit whenever a new schematic is rendered or whenever the container resizes / becomes visible,
+  // so an oversized result is immediately visible instead of overflowing or collapsing.
   useEffect(() => {
     if (!svg) return;
     const id = requestAnimationFrame(() => fitToView());
-    return () => cancelAnimationFrame(id);
+    const el = scrollRef.current;
+    let observer: ResizeObserver | null = null;
+    if (el && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => {
+        fitToView();
+      });
+      observer.observe(el);
+    }
+    return () => {
+      cancelAnimationFrame(id);
+      observer?.disconnect();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svg]);
 

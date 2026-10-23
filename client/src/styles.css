@@ -997,7 +997,7 @@ body.dragging-col * { user-select: none !important; }
 .wave-name .row-x:hover { color: var(--red); }
 
 /* ---------- Schematic ---------- */
-.schem-wrap { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+.schem-wrap { display: flex; flex-direction: column; width: 100%; min-height: 0; flex: 1; height: 100%; }
 .schem-toolbar {
   display: flex;
   align-items: center;

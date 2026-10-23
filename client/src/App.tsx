@@ -104,18 +104,21 @@ function filesFromSample(s: Sample): VFile[] {
 function bootWorkspace(): Workspace {
   const ws = loadWorkspace();
   if (ws) return ws;
-  // First-time visitors get a blank project (empty design + testbench) rather
-  // than a preloaded example — examples are one click away in the sidebar.
-  const files: WsFile[] = [
-    { id: makeId(), name: "design.v", content: "", kind: "design" },
-    { id: makeId(), name: "testbench.v", content: "", kind: "testbench" },
-  ];
+  // Seed a fresh workspace with the classic 4-bit Counter sample so first-time visitors
+  // can immediately simulate, synthesize, lint, and view schematics & waveforms.
+  const sample = SAMPLES.find((s) => s.name === "4-bit Counter") ?? SAMPLES[0];
+  const files: WsFile[] = sample
+    ? filesFromSample(sample).map((f) => ({ ...f, id: makeId() }))
+    : [
+        { id: makeId(), name: "design.v", content: "", kind: "design" },
+        { id: makeId(), name: "testbench.v", content: "", kind: "testbench" },
+      ];
   const id = makeId();
   return {
     version: 2,
     activeId: id,
     projects: [
-      { id, name: "My Project", files, activeId: files[0].id, top: "", flatten: false, sampleName: "" },
+      { id, name: sample?.name ?? "4-bit Counter", files, activeId: files[0].id, top: "", flatten: false, sampleName: sample?.name ?? "4-bit Counter" },
     ],
     settings: defaultSettings(),
   };
@@ -845,6 +848,12 @@ export default function App() {
   };
 
   const runVerify = async () => {
+    const sources = allSources();
+    if (sources.length === 0 || sources.every((f) => !f.content.trim())) {
+      setOutputTab("log");
+      showLog("No Verilog code to lint. Write Verilog code or pick an example from the sidebar.");
+      return;
+    }
     const wasm = engine === "wasm";
     setBusy("verify");
     setOutputTab("log");
@@ -880,6 +889,11 @@ export default function App() {
     if (sources.length === 0) {
       setOutputTab("log");
       showLog("No Verilog/SystemVerilog source files to simulate.");
+      return;
+    }
+    if (sources.every((f) => !f.content.trim())) {
+      setOutputTab("log");
+      showLog("Source files are empty. Write Verilog code or pick an example from the sidebar.");
       return;
     }
     const wasm = engine === "wasm";
@@ -930,10 +944,18 @@ export default function App() {
   };
 
   const runSynthesis = async (modeOverride?: SynthMode, focusTab?: OutputTab) => {
-    if (designSources().length === 0) {
+    const ds = designSources();
+    if (ds.length === 0) {
       setOutputTab("log");
       showLog(
         "No Verilog/SystemVerilog design files. Mark a .v/.sv file as Design (its D/TB badge) first."
+      );
+      return;
+    }
+    if (ds.every((f) => !f.content.trim())) {
+      setOutputTab("log");
+      showLog(
+        "Design files are empty. Add Verilog module code or pick an example from the Examples tab in the sidebar."
       );
       return;
     }

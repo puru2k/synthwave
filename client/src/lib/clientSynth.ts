@@ -62,9 +62,24 @@ function filesObj(files: SourceFile[]): { obj: Record<string, string>; names: st
 }
 
 async function renderSchematic(netlistText: string): Promise<string> {
-  const ns: any = await import("netlistsvg");
-  const render = ns.render ?? ns.default?.render ?? ns.default ?? ns;
-  return await render(skin, JSON.parse(netlistText));
+  const w = typeof window !== "undefined" ? (window as any) : null;
+  const prevAmd = w?.define?.amd;
+  if (w?.define) {
+    try {
+      w.define.amd = false;
+    } catch {}
+  }
+  try {
+    const ns: any = await import("netlistsvg");
+    const render = ns.render ?? ns.default?.render ?? ns.default ?? ns;
+    return await render(skin, JSON.parse(netlistText));
+  } finally {
+    if (w?.define && prevAmd !== undefined) {
+      try {
+        w.define.amd = prevAmd;
+      } catch {}
+    }
+  }
 }
 
 // Turn a raw Yosys netlist + log into the full SynthesizeResponse the UI wants:
