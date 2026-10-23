@@ -138,26 +138,24 @@ export function IconFolder({ size = 15, className }: IconProps) {
   );
 }
 
-// SynthWave brand mark: a waveform that morphs from a sine (simulation) into a
-// square wave (synthesis), set in a gradient-rounded badge.
-export function Logo({ size = 26, className }: IconProps) {
+// SynthWave brand mark: clean, cohesive digital clock & pulse waveform
+export function Logo({ size = 20, className, style }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <defs>
-        <linearGradient id="sw-logo-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="var(--accent)" />
-          <stop offset="1" stopColor="var(--accent-2)" />
-        </linearGradient>
-      </defs>
-      <rect x="1.5" y="1.5" width="21" height="21" rx="6.5" fill="url(#sw-logo-grad)" />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      className={className}
+      style={style}
+      aria-hidden="true"
+    >
       <path
-        d="M3.8 12 q2 -4.5 4 0 t4 0 L11.8 7.7 L15 7.7 L15 16.3 L18.2 16.3 L18.2 12 L20.2 12"
-        stroke="#fff"
-        strokeWidth="1.7"
+        d="M2 13h4.5l2.5-7 4 14 3.5-9 2 4h4"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        fill="none"
-        opacity="0.96"
       />
     </svg>
   );

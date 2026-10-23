@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import CodeEditor, { SNIPPETS } from "./components/CodeEditor";
+import CodeEditor from "./components/CodeEditor";
 import WaveformViewer from "./components/WaveformViewer";
 import Schematic from "./components/Schematic";
 import SynthReports from "./components/SynthReports";
@@ -43,7 +43,6 @@ import { simulateWasm, lintWasm, strictLintWasm, warmupSim, warmupStrictLint } f
 import { buildIndex } from "./lib/verilogIndex";
 import { parseModules } from "./lib/ports";
 import { buildHierarchy, type HierNode } from "./lib/hierarchy";
-import { formatVerilog } from "./lib/format";
 import TestbenchDialog from "./components/TestbenchDialog";
 import { isHdl, monacoLanguage, sanitizeName, splitExt } from "./lib/filetypes";
 import { onToolchainProgress, type ToolProgress } from "./lib/toolchain";
@@ -67,8 +66,6 @@ import {
   IconCheck,
   IconCpu,
   IconSearch,
-  IconAlignLeft,
-  IconCode,
   IconKeyboard,
   IconClock,
   IconBolt,
@@ -158,8 +155,6 @@ export default function App() {
   // Workspace (multi-project) state.
   const [projects, setProjects] = useState<WsProject[]>(bootWs.projects);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [snippetMenuOpen, setSnippetMenuOpen] = useState(false);
-  const snippetMenuRef = useRef<HTMLDivElement>(null);
   const [activeProjectId, setActiveProjectId] = useState<string>(initialProject.id);
   const [renamingProject, setRenamingProject] = useState<{ id: string; value: string } | null>(null);
 
@@ -366,33 +361,6 @@ export default function App() {
     setNativeAppearance(t.dark ? "dark" : "light");
   }, [resolvedTheme]);
 
-  // Close snippet dropdown on outside click
-  useEffect(() => {
-    if (!snippetMenuOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (snippetMenuRef.current && !snippetMenuRef.current.contains(e.target as Node)) {
-        setSnippetMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [snippetMenuOpen]);
-
-  const insertSnippet = (body: string) => {
-    setSnippetMenuOpen(false);
-    const api = editorApiRef.current;
-    if (!api || !activeFile) return;
-    const { editor } = api;
-    editor.focus();
-    const contrib = editor.getContribution("snippetController2");
-    if (contrib && typeof contrib.insert === "function") {
-      contrib.insert(body);
-    } else {
-      const selection = editor.getSelection();
-      editor.executeEdits("snippet", [{ range: selection, text: body, forceMoveMarkers: true }]);
-    }
-  };
-
   // Global keyboard shortcuts
   useEffect(() => {
     const onGlobalKeyDown = (e: KeyboardEvent) => {
@@ -405,16 +373,6 @@ export default function App() {
       if (isMod && e.shiftKey && e.key === "Enter") {
         e.preventDefault();
         if (busy === null) runSynthesis();
-        return;
-      }
-      if (isMod && (e.key === "s" || e.key === "S")) {
-        e.preventDefault();
-        formatActiveFile();
-        return;
-      }
-      if (e.altKey && e.shiftKey && (e.key === "F" || e.key === "f")) {
-        e.preventDefault();
-        formatActiveFile();
         return;
       }
       if (isMod && (e.key === "b" || e.key === "B")) {
@@ -690,17 +648,6 @@ export default function App() {
       next.splice(to, 0, moved);
       return next;
     });
-  };
-
-  const formatActiveFile = () => {
-    if (!activeFile || !isHdl(activeFile.name)) return;
-    const formatted = formatVerilog(activeFile.content);
-    if (formatted !== activeFile.content) {
-      setFiles((fs) => fs.map((f) => (f.id === activeFile.id ? { ...f, content: formatted } : f)));
-      setLog(`Formatted ${activeFile.name}.`);
-    } else {
-      setLog(`${activeFile.name} already formatted.`);
-    }
   };
 
   // Insert a generated testbench as a new file; optionally simulate it right
@@ -1277,13 +1224,6 @@ export default function App() {
           >
             <IconPanelLeft />
           </button>
-          <button
-            className="icon-btn topbar-shortcuts-btn"
-            title="Keyboard shortcuts (?)"
-            onClick={() => setShortcutsOpen(true)}
-          >
-            <IconKeyboard size={17} />
-          </button>
           <div className="menu-wrap">
             <button
               className={openMenu === "settings" ? "icon-btn active" : "icon-btn"}
@@ -1407,17 +1347,6 @@ export default function App() {
                 >
                   Generate testbench / stimulus…
                 </button>
-                <button
-                  className="menu-item"
-                  onClick={() => {
-                    setOpenMenu(null);
-                    formatActiveFile();
-                  }}
-                  disabled={!activeFile || !isHdl(activeFile.name)}
-                  title="Reindent the active Verilog file"
-                >
-                  Format Verilog (reindent)
-                </button>
                 <div className="menu-divider" />
                 <button
                   className="menu-item"
@@ -1427,6 +1356,7 @@ export default function App() {
                   }}
                   title="View keyboard shortcuts"
                 >
+                  <IconKeyboard size={15} style={{ verticalAlign: "-2px", marginRight: 8 }} />
                   Keyboard shortcuts (?)
                 </button>
                 <div className="menu-divider" />
@@ -1908,50 +1838,6 @@ export default function App() {
               <IconPlus />
             </button>
             <div className="spacer" />
-            <div className="ftab-actions">
-              <button
-                className="ftab-tool-btn"
-                onClick={formatActiveFile}
-                disabled={!activeFile || !isHdl(activeFile.name)}
-                title="Format Verilog (reindent code) — Alt+Shift+F"
-              >
-                <IconAlignLeft size={14} />
-                <span className="tool-btn-text">Format</span>
-              </button>
-              <div className="snippet-picker-wrap" ref={snippetMenuRef}>
-                <button
-                  className={snippetMenuOpen ? "ftab-tool-btn active" : "ftab-tool-btn"}
-                  onClick={() => setSnippetMenuOpen((o) => !o)}
-                  disabled={!activeFile || !isHdl(activeFile.name)}
-                  title="Insert Verilog snippet at cursor"
-                >
-                  <IconCode size={14} />
-                  <span className="tool-btn-text">Snippets</span>
-                  <IconChevron size={11} />
-                </button>
-                {snippetMenuOpen && (
-                  <div className="snippet-dropdown">
-                    <div className="snippet-dropdown-title">Verilog Snippets</div>
-                    <div className="snippet-list">
-                      {SNIPPETS.map((s, idx) => (
-                        <button
-                          key={idx}
-                          className="snippet-item"
-                          onClick={() => {
-                            insertSnippet(s.body);
-                            setSnippetMenuOpen(false);
-                          }}
-                          title={s.detail}
-                        >
-                          <span className="snippet-name">{s.label}</span>
-                          <span className="snippet-desc">{s.detail}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
             <button
               className="max-btn"
               title={maximized === "editor" ? "Restore split view" : "Maximize editor"}
