@@ -8,14 +8,17 @@ Live site: [https://puru2k.github.io/synthwave/](https://puru2k.github.io/synthw
 
 ## Technical Overview
 
-SynthWave runs the complete digital logic design flow in the browser without requiring local tool installations or a backend server.
+SynthWave runs the complete digital logic design and verification flow inside the web browser without requiring backend servers or local tool installations.
 
-- **Simulation**: Uses Icarus Verilog (`iverilog` and `vvp`) compiled to WebAssembly running inside background Web Workers. Designs are compiled with the testbench to generate Value Change Dump (`.vcd`) files.
-- **Synthesis**: Runs Yosys via `@yowasp/yosys` (WebAssembly) in a Web Worker. Performs RTL elaboration, optimization, and technology mapping to either generic logic gates or SkyWater 130nm (`sky130`) standard cells, outputting netlist JSON.
-- **Schematic Visualization**: Converts synthesized netlist JSON into interactive SVG circuit diagrams using NetlistSVG. Gates and flip-flops in the schematic link directly back to their source declarations.
-- **Waveform Viewer**: Custom SVG timing diagram viewer that parses VCD output, supporting multi-bit bus radix switching (`hex`, `dec`, `bin`), edge search, time markers, and time-seeking from `$display` console logs.
-- **State Machine Extraction**: Parses behavioral `always` blocks and `case`/`if-else` statements to extract and diagram Finite State Machine (FSM) states, transitions, and reset conditions.
-- **Code Editor**: Monaco Editor configured with Verilog language support, keyword completion, symbol indexing across project files, and inline lint diagnostics.
+- **In-Browser Simulation**: Executes Icarus Verilog (`ivlpp`, `ivl`, `vvp` compiled to WebAssembly with VPI support) inside background Web Workers. Compiles HDL designs and testbenches to produce Value Change Dump (`.vcd`) files, while capturing runtime console output and testbench file operations (`$fopen`, `$fwrite`, `$writememh`).
+- **RTL & Gate-Level Synthesis**: Runs YoWASP Yosys (`@yowasp/yosys` WebAssembly) in dedicated workers. Performs RTL elaboration, logic optimization, technology mapping to generic logic gates or SkyWater 130nm (`sky130`) standard cells, and generates synthesis netlist JSON.
+- **Circuit Schematic Visualization**: Transforms synthesized netlist JSON into interactive SVG circuit diagrams using NetlistSVG with the ELK layout engine. Gates, flip-flops, and hierarchies in the diagram link directly back to their HDL source definitions.
+- **Waveform Viewer**: Custom SVG timing diagram viewer parsing VCD streams client-side. Supports multi-bit bus radix switching (`hex`, `dec`, `bin`), transition edge navigation, time delta measurement markers, and time-seeking linked to `$display` timestamps in the console.
+- **Dual-Engine Linting**: Provides live syntax diagnostics through Icarus Verilog and strict verification through WebAssembly-compiled Verilator (`verilator_bin`), surfacing errors, bit-width mismatches, and style warnings directly on Monaco editor line gutters.
+- **Finite State Machine (FSM) Extraction**: Extracts state registers, transitions, inputs, outputs, and reset states directly from behavioral HDL AST, diagramming Moore and Mealy machines in interactive vector graphs.
+- **Synthesis Reports**: Analyzes gate-level netlists against Liberty standard-cell models to compute total silicon area, rough critical path delay estimates, and cell utilization breakdowns.
+- **Offline Caching & Toolchain Prefetching**: Uses browser Cache API and Service Workers (`sw.js`) to download WebAssembly toolchains on first use and store them persistently for offline execution.
+- **Client Workspace**: Manages multi-file and multi-project workspaces with local persistence via `localStorage`, ZIP project bundle export, and URL compression for project sharing.
 
 ---
 
@@ -23,28 +26,43 @@ SynthWave runs the complete digital logic design flow in the browser without req
 
 ```
 synthwave/
+├── package.json                Root workspace helper scripts
+├── .gitignore                  Repository ignore rules
 ├── client/
 │   ├── public/
-│   │   ├── wasm/               Compiled WebAssembly binaries (Icarus Verilog, Verilator)
-│   │   └── favicon.svg         Digital clock waveform vector icon
+│   │   ├── wasm/               WebAssembly binaries (Icarus Verilog, Verilator, Yosys)
+│   │   ├── favicon.svg         Digital clock waveform vector icon
+│   │   ├── manifest.webmanifest Web application manifest
+│   │   └── sw.js               Service Worker for offline toolchain caching
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── CodeEditor.tsx      Monaco editor integration with syntax tokens & providers
 │   │   │   ├── WaveformViewer.tsx  SVG timing diagram renderer and signal inspector
 │   │   │   ├── Schematic.tsx       NetlistSVG interactive circuit schematic viewer
+│   │   │   ├── SynthReports.tsx    Area, delay, and cell utilization report inspector
 │   │   │   ├── FSMDiagram.tsx      Interactive SVG state machine transition graph
-│   │   │   └── TestbenchDialog.tsx Port inspection and stimulus generator
+│   │   │   ├── TestbenchDialog.tsx Module port inspection and testbench stimulus generator
+│   │   │   ├── Icons.tsx           Vector icon library with digital clock waveform logo
+│   │   │   └── ErrorBoundary.tsx   React component error boundary
 │   │   ├── lib/
 │   │   │   ├── clientSim.ts        WebAssembly simulation worker coordinator
 │   │   │   ├── clientSynth.ts      WebAssembly Yosys runner and NetlistSVG interface
 │   │   │   ├── vcd.ts              Streaming VCD format parser and signal value sampler
 │   │   │   ├── verilogIndex.ts     Module, port, and wire indexer for autocompletion
-│   │   │   ├── fsmSource.ts        AST parser for behavioral FSM extraction
-│   │   │   ├── netlist.ts          Netlist JSON transformation helpers
-│   │   │   └── themes.ts           Color token definitions (Night and Day themes)
-│   │   ├── workers/            Dedicated Web Workers for sandboxed tool execution
-│   │   ├── App.tsx             Root workspace coordinator, layout, and state management
-│   │   └── styles.css          Design tokens and CSS rules
+│   │   │   ├── fsmSource.ts        Source-level AST parser for behavioral FSM extraction
+│   │   │   ├── netlist.ts          Netlist JSON transformation helpers and cell stats
+│   │   │   ├── workspace.ts        Multi-project workspace management & localStorage persistence
+│   │   │   ├── toolchain.ts        Progress reporting, Cache API warming, and SW registration
+│   │   │   ├── api.ts              Shared TypeScript data structures and response types
+│   │   │   ├── themes.ts           High-contrast color token definitions (Day and Night)
+│   │   │   ├── zip.ts              In-memory ZIP archive builder for project exports
+│   │   │   └── share.ts            URL project encoding and compression
+│   │   ├── workers/
+│   │   │   ├── iverilogWorker.ts   Web Worker running in-browser Icarus Verilog
+│   │   │   ├── verilatorWorker.ts  Web Worker running in-browser Verilator strict lint
+│   │   │   └── yosysWorker.ts      Web Worker running in-browser YoWASP Yosys
+│   │   ├── App.tsx             Root workspace coordinator, responsive layout, and state management
+│   │   └── styles.css          Design tokens, UI geometry, and responsive CSS rules
 │   └── package.json            Client dependencies and scripts
 └── .github/workflows/
     ├── ci.yml                  Typecheck, lint, test, and build validation
@@ -80,7 +98,7 @@ The application will be accessible at `http://localhost:5173/`.
 
 ## Scripts
 
-Run commands from the `client/` directory:
+Run commands from the `client/` directory (or use `npm run <command>` from the repository root):
 
 | Command | Description |
 | --- | --- |
