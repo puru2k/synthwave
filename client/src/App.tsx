@@ -5,17 +5,11 @@ import Schematic from "./components/Schematic";
 import SynthReports from "./components/SynthReports";
 import { parseVcd, type VcdData } from "./lib/vcd";
 import {
-  getHealth,
-  simulate,
-  synthesize,
-  verify,
-  extractFsm,
-  type HealthResponse,
+  type CellSrc,
   type SourceFile,
   type SynthStats,
   type LintLevel,
   type SynthMode,
-  type CellSrc,
 } from "./lib/api";
 import { SAMPLES, CATEGORY_ORDER, type Sample } from "./lib/samples";
 import { downloadText, downloadBlob } from "./lib/download";
@@ -172,9 +166,8 @@ export default function App() {
   const [liveLint, setLiveLint] = useState(bootWs.settings.liveLint);
   const [lintLevel, setLintLevel] = useState<LintLevel>(bootWs.settings.lintLevel);
   const [synthMode, setSynthMode] = useState<SynthMode>(bootWs.settings.synthMode);
-  // In the desktop (Tauri) build, default to the native CLI toolchain; in the
-  // browser, honor the saved engine (wasm for static deploys, server locally).
-  const [engine, setEngine] = useState<SynthEngine>(bootWs.settings.engine);
+  // Fully client-side WebAssembly engine
+  const engine: SynthEngine = "wasm";
   const urlTheme = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("theme") : null;
   const [theme, setTheme] = useState<string>(urlTheme ? normalizeThemePref(urlTheme) : normalizeThemePref(bootWs.settings.theme));
   const [smartSuggestions, setSmartSuggestions] = useState(bootWs.settings.smartSuggestions ?? true);
@@ -210,7 +203,6 @@ export default function App() {
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
   const [lintClean, setLintClean] = useState(false);
   const [busy, setBusy] = useState<"verify" | "sim" | "synth" | "fsm" | null>(null);
-  const [health, setHealth] = useState<HealthResponse | null>(null);
   const [openMenu, setOpenMenu] = useState<"settings" | "export" | null>(null);
   // In-app confirm dialog. window.confirm() is a no-op in Tauri's WKWebView, so
   // we use our own promise-based modal that works in both the web and desktop apps.
@@ -248,34 +240,12 @@ export default function App() {
 
   const activeFile = files.find((f) => f.id === activeId) ?? files[0];
   const designFiles = files.filter((f) => f.kind === "design");
-  // The /api backend is reachable only when getHealth() succeeded. On a static
-  // deploy it never will, so the Server engine is hidden and we stay in-browser.
-  const serverAvailable = health != null;
-
-
 
   useEffect(() => {
-    getHealth()
-      .then(setHealth)
-      .catch(() => {
-        setHealth(null);
-        // No backend reachable (e.g. a static deploy) — fall back to the
-        // fully in-browser engine so everything keeps working.
-        if (bootWs.settings.engine === "server") {
-          setEngine("wasm");
-          warmupWasm();
-          warmupSim();
-        }
-      });
-    // Prefetch the in-browser toolchains if the workspace booted on the wasm
-    // engine — but never in the desktop build, where native tools are used.
-    if (bootWs.settings.engine === "wasm") {
-      warmupWasm();
-      warmupSim();
-      if (bootWs.settings.lintLevel === "strict") warmupStrictLint();
-    }
-    // Runs once on mount; bootWs is the immutable boot snapshot, so reading its
-    // settings here does not need to re-trigger the effect.
+    // Prefetch the in-browser WebAssembly toolchains on boot.
+    warmupWasm();
+    warmupSim();
+    if (bootWs.settings.lintLevel === "strict") warmupStrictLint();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -590,10 +560,7 @@ export default function App() {
                 .filter((f) => f.kind === "design" && isHdl(f.name))
                 .map((f) => ({ name: f.name, content: f.content }))
             : files.filter((f) => isHdl(f.name)).map((f) => ({ name: f.name, content: f.content }));
-        let res;
-        if (engine === "wasm")
-          res = lintLevel === "strict" ? await strictLintWasm(src, top) : await lintWasm(src);
-        else res = await verify(src, lintLevel, top);
+        const res = lintLevel === "strict" ? await strictLintWasm(src, top) : await lintWasm(src);
         if (id === liveReqRef.current) setDiagnostics(parseDiagnostics(res.log || ""));
       } catch {
         /* ignore transient live-lint errors */
@@ -809,17 +776,12 @@ export default function App() {
       showLog("No Verilog code to lint. Write Verilog code or pick an example from the sidebar.");
       return;
     }
-    const wasm = engine === "wasm";
     setBusy("verify");
     setOutputTab("log");
     setLog(
       lintLevel === "strict"
-        ? wasm
-          ? "Linting in-browser with Verilator (WebAssembly)...\nFirst run downloads the ~7 MB toolchain; it is cached afterward."
-          : "Linting with Verilator..."
-        : wasm
-        ? "Linting in-browser (Icarus · WebAssembly)..."
-        : "Linting..."
+        ? "Linting in-browser with Verilator (WebAssembly)...\nFirst run downloads the ~7 MB toolchain; it is cached afterward."
+        : "Linting in-browser (Icarus · WebAssembly)..."
     );
     setDiagnostics([]);
     try {
@@ -828,9 +790,7 @@ export default function App() {
         showLog("No Verilog/SystemVerilog source files to lint.");
         return;
       }
-      let res;
-      if (wasm) res = lintLevel === "strict" ? await strictLintWasm(src, top) : await lintWasm(src);
-      else res = await verify(src, lintLevel, top);
+      const res = lintLevel === "strict" ? await strictLintWasm(src, top) : await lintWasm(src);
       showLog(res.log || (res.ok ? "OK" : "Verification failed."));
     } catch (e: any) {
       showLog("Request failed: " + (e?.message || String(e)));
@@ -851,19 +811,16 @@ export default function App() {
       showLog("Source files are empty. Write Verilog code or pick an example from the sidebar.");
       return;
     }
-    const wasm = engine === "wasm";
     setBusy("sim");
     setLog(
-      wasm
-        ? "Compiling and simulating in-browser (Icarus Verilog · WebAssembly)...\nFirst run downloads the ~10 MB toolchain; it is cached afterward."
-        : "Compiling and simulating..."
+      "Compiling and simulating in-browser (Icarus Verilog · WebAssembly)...\nFirst run downloads the ~10 MB toolchain; it is cached afterward."
     );
     setDiagnostics([]);
     setTestResult({ status: "none", passes: 0, fails: 0 });
     setSimOutputs([]);
     try {
       const data = dataSources();
-      const res = wasm ? await simulateWasm(sources, data) : await simulate(sources, data);
+      const res = await simulateWasm(sources, data);
       setTestResult(evaluateTestResult(res.log || ""));
       const outs = res.outputs || [];
       setSimOutputs(outs);
@@ -877,8 +834,7 @@ export default function App() {
         setVcdText(res.vcd);
         const vcd = res.vcd;
         setWaveRuns((prev) => {
-          const eng = wasm ? " · in-browser" : "";
-          const label = new Date().toLocaleTimeString() + (sampleName ? ` · ${sampleName}` : "") + eng;
+          const label = new Date().toLocaleTimeString() + (sampleName ? ` · ${sampleName}` : "") + " · in-browser";
           const run: WaveRun = { id: makeId(), label, vcd, at: Date.now() };
           return [run, ...prev].slice(0, 8);
         });
@@ -916,26 +872,23 @@ export default function App() {
       return;
     }
     const mode = modeOverride ?? synthMode;
-    const wasm = engine === "wasm";
     setBusy("synth");
     setLog(
-      (wasm ? "Synthesizing in-browser (YoWASP Yosys)" : "Synthesizing with Yosys") +
+      "Synthesizing in-browser (YoWASP Yosys)" +
         (mode === "gate" ? " to gates..." : "...") +
-        (wasm ? "\nFirst run downloads the ~50 MB WebAssembly toolchain; it is cached afterward." : "")
+        "\nFirst run downloads the ~50 MB WebAssembly toolchain; it is cached afterward."
     );
     setDiagnostics([]);
     try {
       const lib = mode === "gate" ? activeLib.content : undefined;
-      const res = wasm
-        ? await synthesizeWasm(designSources(), top, flatten, mode, lib)
-        : await synthesize(designSources(), top, flatten, mode, lib);
+      const res = await synthesizeWasm(designSources(), top, flatten, mode, lib);
       setNetlistJson(res.netlist ?? null);
       setStats(res.stats ?? null);
       setSrcMap(res.srcMap ?? null);
       if (res.ok) {
         showLog(res.log || "");
         setSvg(res.svg ?? null);
-        setResultEngine(engine);
+        setResultEngine("wasm");
         // Land on the tab the run was launched for (e.g. Reports when the user
         // clicked "Run gate-level synthesis" there); otherwise show the schematic
         // if we have one, falling back to the log.
@@ -962,13 +915,10 @@ export default function App() {
       setFsmLog("No Verilog/SystemVerilog design files. Mark a .v/.sv file as Design first.");
       return;
     }
-    const wasm = engine === "wasm";
     setBusy("fsm");
     setOutputTab("fsm");
     setFsmLog(
-      wasm
-        ? "Extracting FSM in-browser (YoWASP Yosys)...\nFirst run downloads the ~50 MB WebAssembly toolchain; it is cached afterward."
-        : "Extracting FSM with Yosys..."
+      "Extracting FSM in-browser (YoWASP Yosys)...\nFirst run downloads the ~50 MB WebAssembly toolchain; it is cached afterward."
     );
     try {
       // Prefer source-level extraction: it preserves the textbook Moore/Mealy
@@ -979,7 +929,7 @@ export default function App() {
         setFsmLog("");
         return;
       }
-      const res = wasm ? await extractFsmWasm(designSources(), top) : await extractFsm(designSources(), top);
+      const res = await extractFsmWasm(designSources(), top);
       if (res.ok && res.fsm) {
         setFsm(res.fsm);
         setFsmLog("");
@@ -1034,24 +984,6 @@ export default function App() {
   const changeSynthMode = (m: SynthMode) => {
     setSynthMode(m);
     if (svg || netlistJson) runSynthesis(m);
-  };
-
-  const changeEngine = (e: SynthEngine) => {
-    if (e === "server" && !serverAvailable) {
-      // No backend on this origin (static deploy) — the Server engine would fail
-      // every action, so refuse the switch and explain why.
-      setLog(
-        "The Server engine needs a backend (Icarus/Yosys CLI), which isn't available on this hosted site. " +
-          "Everything runs in-browser instead."
-      );
-      return;
-    }
-    setEngine(e);
-    if (e === "wasm") {
-      warmupWasm();
-      warmupSim();
-      if (lintLevel === "strict") warmupStrictLint();
-    }
   };
 
   // ---------- Project (workspace) management ----------
@@ -1171,9 +1103,6 @@ export default function App() {
 
   const errorCount = diagnostics.filter((d) => d.severity === "error").length;
   const warnCount = diagnostics.filter((d) => d.severity === "warning").length;
-
-  const missingTools =
-    health && (!health.tools.iverilog || !health.tools.vvp || !health.tools.yosys);
 
   const artifacts = [
     ...files.map((f) => ({ name: f.name, content: f.content, mime: "text/plain", available: !!f.content.trim() })),
@@ -1300,15 +1229,9 @@ export default function App() {
                   )}
                 </div>
                 <div className="menu-section">
-                    <span className="menu-label">Compute engine (simulate + synthesize)</span>
-                    <select value={engine} onChange={(e) => changeEngine(e.target.value as SynthEngine)}>
-                      <option value="wasm">In-browser (WebAssembly)</option>
-                      {serverAvailable && <option value="server">Server (Icarus + Yosys CLI)</option>}
-                    </select>
-                    {!serverAvailable && (
-                      <span className="menu-hint">In-browser only — fully client-side.</span>
-                    )}
-                  </div>
+                  <span className="menu-label">Compute engine</span>
+                  <span className="menu-hint">In-browser WebAssembly (client-side)</span>
+                </div>
                 <div className="menu-section">
                   <span className="menu-label">Theme</span>
                   <select value={theme} onChange={(e) => setTheme(e.target.value)}>
@@ -1492,16 +1415,6 @@ export default function App() {
       )}
 
       {shareMsg && <div className="toast">{shareMsg}</div>}
-
-      {missingTools && (
-        <div className="warn-banner">
-          "Some tools were not found on the server:"
-          {!health?.tools.iverilog && " iverilog"}
-          {!health?.tools.vvp && " vvp"}
-          {!health?.tools.yosys && " yosys"}
-          " — install them and restart the server."
-        </div>
-      )}
 
       <div className="body">
         {sidebarOpen && (
@@ -1964,14 +1877,10 @@ export default function App() {
                     </div>
                     {resultEngine && (
                       <span
-                        className={resultEngine === "wasm" ? "engine-badge wasm" : "engine-badge"}
-                        title={
-                          resultEngine === "wasm"
-                            ? "Synthesized in-browser with YoWASP Yosys (WebAssembly)"
-                            : "Synthesized on the server with the Yosys CLI"
-                        }
+                        className="engine-badge wasm"
+                        title="Synthesized in-browser with YoWASP Yosys (WebAssembly)"
                       >
-                        {resultEngine === "wasm" ? (<><IconBolt size={12} style={{ marginRight: 3, verticalAlign: "middle" }} />in-browser</>) : "server"}
+                        <IconBolt size={12} style={{ marginRight: 3, verticalAlign: "middle" }} />in-browser
                       </span>
                     )}
                     {stats && (

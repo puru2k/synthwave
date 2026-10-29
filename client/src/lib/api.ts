@@ -40,24 +40,6 @@ export interface FsmResponse {
   log: string;
 }
 
-export interface HealthResponse {
-  ok: boolean;
-  tools: {
-    iverilog: string | null;
-    vvp: string | null;
-    yosys: string | null;
-  };
-}
-
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  return (await res.json()) as T;
-}
-
 export interface VerifyResponse {
   ok: boolean;
   log: string;
@@ -70,32 +52,3 @@ export interface SourceFile {
 
 export type LintLevel = "basic" | "strict";
 export type SynthMode = "rtl" | "gate";
-
-export function verify(files: SourceFile[], level: LintLevel = "basic", top = "") {
-  return postJson<VerifyResponse>("/api/verify", { files, level, top });
-}
-
-export function simulate(files: SourceFile[], data: SourceFile[] = []) {
-  return postJson<SimulateResponse>("/api/simulate", { files, data });
-}
-
-export function synthesize(files: SourceFile[], top: string, flatten: boolean, mode: SynthMode = "rtl", lib?: string) {
-  return postJson<SynthesizeResponse>("/api/synthesize", { files, top, flatten, mode, lib });
-}
-
-export function extractFsm(files: SourceFile[], top: string) {
-  return postJson<FsmResponse>("/api/fsm", { files, top });
-}
-
-export async function getHealth(): Promise<HealthResponse> {
-  const res = await fetch("/api/health");
-  // On a static host (GitHub Pages) an SPA redirect can answer /api/health
-  // with the index.html shell at status 200. Reject anything that isn't real JSON
-  // from the backend so we don't mistake a static host for a live server.
-  if (!res.ok) throw new Error(`health ${res.status}`);
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.includes("application/json")) throw new Error("health: not a backend response");
-  const data = (await res.json()) as HealthResponse;
-  if (!data || typeof data.ok !== "boolean") throw new Error("health: unexpected payload");
-  return data;
-}
